@@ -19,7 +19,7 @@ app.UseStaticFiles();
 
 var jsonOpts = new JsonSerializerOptions
 {
-    PropertyNamingPolicy        = JsonNamingPolicy.CamelCase,
+    PropertyNamingPolicy        = JsonNamingPolicy.SnakeCaseLower,
     DefaultIgnoreCondition      = JsonIgnoreCondition.WhenWritingNull,
 };
 

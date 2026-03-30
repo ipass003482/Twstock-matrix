@@ -865,7 +865,7 @@ function applyVixStyle(valEl, tagEl, value) {
   if (value < 15)      { cls = 'calm';   label = '市場平靜'; }
   else if (value < 20) { cls = 'normal'; label = '正常波動'; }
   else if (value < 30) { cls = 'fear';   label = '市場焦慮'; }
-  else                 { cls = 'panic';  label = '極度恐慕'; }
+  else                 { cls = 'panic';  label = '極度恐懼'; }
   tagEl.className   = 'vix-tag ' + cls;
   tagEl.textContent = label;
   const colorMap = { calm:'var(--green)', normal:'var(--yellow)', fear:'#f4a037', panic:'var(--red)' };

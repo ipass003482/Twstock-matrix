@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>台灣股票市場狀態決策矩陣</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    /* ── 基礎 ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:        #0d1117;
+      --surface:   #161b22;
+      --surface2:  #21262d;
+      --border:    #30363d;
+      --text:      #e6edf3;
+      --text-muted:#8b949e;
+      --accent:    #58a6ff;
+      --green:     #3fb950;
+      --red:       #f85149;
+      --yellow:    #d29922;
+      --radius:    8px;
+    }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    .header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .header h1 { font-size: 1.25rem; font-weight: 700; color: var(--text); }
+    .header span { font-size: 0.85rem; color: var(--text-muted); }
+
+    /* ── Search ── */
+    .search-wrap {
+      max-width: 900px;
+      margin: 32px auto;
+      padding: 0 20px;
+    }
+    .search-box {
+      display: flex;
+      gap: 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 16px;
+    }
+    .search-box input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text);
+      font-size: 1rem;
+    }
+    .search-box input::placeholder { color: var(--text-muted); }
+    .btn-search {
+      background: var(--accent);
+      color: #0d1117;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 20px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity .15s;
+    }
+    .btn-search:hover { opacity: .85; }
+    .search-hint {
+      margin-top: 8px;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+    }
+
+    /* ── Main content ── */
+    .main { max-width: 900px; margin: 0 auto; padding: 0 20px 60px; }
+
+    /* ── Loading / Error ── */
+    .loading, .error-box {
+      text-align: center;
+      padding: 48px;
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+    .error-box { color: var(--red); }
+    .spinner {
+      display: inline-block;
+      width: 28px; height: 28px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      margin-bottom: 12px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Stock header card ── */
+    .stock-header {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .stock-title { font-size: 1.5rem; font-weight: 700; }
+    .stock-ticker { font-size: 0.85rem; color: var(--text-muted); margin-top: 2px; }
+    .stock-price { font-size: 2rem; font-weight: 700; }
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.78rem;
+      font-weight: 600;
+    }
+
+    /* ── Decision summary card ── */
+    .decision-card {
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin-bottom: 20px;
+      border: 1px solid var(--border);
+    }
+    .decision-card .dc-label { font-size: 0.8rem; color: rgba(255,255,255,0.7); margin-bottom: 4px; }
+    .decision-card .dc-action { font-size: 1.6rem; font-weight: 700; margin-bottom: 8px; }
+    .decision-card .dc-desc { font-size: 0.9rem; opacity: .85; }
+    .decision-card .dc-meta { display: flex; gap: 20px; margin-top: 12px; font-size: 0.82rem; opacity: .75; }
+
+    /* ── Chart ── */
+    .chart-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin-bottom: 20px;
+    }
+    .card-title { font-size: 0.85rem; font-weight: 600; color: var(--text-muted); margin-bottom: 16px; text-transform: uppercase; letter-spacing: .05em; }
+    .chart-wrap { position: relative; height: 220px; }
+    .chart-vol-wrap { position: relative; height: 80px; margin-top: 8px; }
+
+    /* ── Indicators grid ── */
+    .indicators-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .ind-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+    }
+    .ind-label { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px; }
+    .ind-value { font-size: 1.25rem; font-weight: 700; }
+    .ind-sub { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; }
+    .up { color: var(--green); }
+    .down { color: var(--red); }
+    .neutral { color: var(--yellow); }
+
+    /* ── Decision matrix ── */
+    .matrix-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin-bottom: 20px;
+    }
+    .matrix-scroll { overflow-x: auto; }
+    .matrix-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+      min-width: 540px;
+    }
+    .matrix-table th {
+      background: var(--surface2);
+      color: var(--text-muted);
+      padding: 10px 14px;
+      text-align: center;
+      font-weight: 600;
+    }
+    .matrix-table th:first-child { text-align: left; }
+    .matrix-table td {
+      padding: 10px 14px;
+      text-align: center;
+      border: 1px solid var(--border);
+      cursor: default;
+      transition: opacity .15s;
+    }
+    .matrix-table td:first-child { text-align: left; font-weight: 600; background: var(--surface2); }
+    .matrix-table td.active-cell {
+      outline: 2px solid white;
+      outline-offset: -2px;
+      font-weight: 700;
+    }
+    .cell-action { font-weight: 600; margin-bottom: 3px; }
+    .cell-risk { font-size: 0.74rem; opacity: .8; }
+
+    /* State row header colors */
+    .row-strong-bull { color: #3fb950; }
+    .row-bull        { color: #7ee787; }
+    .row-sideways    { color: #d29922; }
+    .row-bear        { color: #ff7b72; }
+    .row-strong-bear { color: #f85149; }
+
+    /* Cell colors derived from level */
+    .cell-l5 { background: #0d3318; color: #3fb950; }
+    .cell-l4 { background: #0f2f12; color: #7ee787; }
+    .cell-l3 { background: #1f2200; color: #d29922; }
+    .cell-l2 { background: #2a1800; color: #e09e2e; }
+    .cell-l1 { background: #2d0c0c; color: #f85149; }
+    .cell-l0 { background: var(--surface2); color: var(--text-muted); }
+
+    /* ── Trend score bar ── */
+    .score-bar-wrap { margin-top: 16px; }
+    .score-bar-label { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 6px; display: flex; justify-content: space-between; }
+    .score-bar-bg {
+      width: 100%;
+      height: 10px;
+      background: var(--surface2);
+      border-radius: 5px;
+      overflow: hidden;
+      position: relative;
+    }
+    .score-bar-fill {
+      height: 100%;
+      border-radius: 5px;
+      transition: width .5s ease;
+    }
+    .score-tick {
+      position: absolute;
+      top: 0; bottom: 0;
+      width: 2px;
+      background: var(--border);
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    /* ── Footer ── */
+    .footer {
+      text-align: center;
+      padding: 20px;
+      color: var(--text-muted);
+      font-size: 0.78rem;
+      border-top: 1px solid var(--border);
+      margin-top: 40px;
+    }
+
+    /* ── Misc ── */
+    .hidden { display: none !important; }
+    .trend-badge { padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; }
+    .method-explain {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      margin-bottom: 20px;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      line-height: 1.7;
+    }
+    .method-explain strong { color: var(--text); }
+  </style>
+</head>
+<body>
+
+<header class="header">
+  <div>
+    <h1>台灣股票市場狀態決策矩陣</h1>
+    <span>Taiwan Index Market State Decision Matrix</span>
+  </div>
+</header>
+
+<div class="search-wrap">
+  <div class="search-box" style="position:relative">
+    <input id="tickerInput" type="text" placeholder="輸入代號或公司名稱，例如：2330、台積電、0050" maxlength="30" autocomplete="off" />
+    <button class="btn-search" onclick="doSearch()">查詢</button>
+    <ul id="autocompleteList" style="display:none;position:absolute;top:100%;left:0;right:60px;background:#161b22;border:1px solid #30363d;border-radius:0 0 8px 8px;list-style:none;margin:0;padding:0;z-index:999;max-height:260px;overflow-y:auto"></ul>
+  </div>
+  <p class="search-hint">支援台灣上市與上櫃股票，可輸入代號（2330）或中文名稱（台積電）</p>
+</div>
+
+<div class="main">
+
+  <!-- 說明方法 -->
+  <div class="method-explain" id="explainBox">
+    <strong>判斷方法說明</strong><br/>
+    系統依據以下指標自動判斷市場狀態，再對應到建議決策：<br/>
+    <strong>趨勢評分</strong>：價格 vs MA20/MA60/MA200 排列、RSI(14)、MACD 方向與交叉信號，加總得分決定趨勢狀態（強多頭 / 多頭 / 盤整 / 空頭 / 強空頭）。<br/>
+    <strong>波動度</strong>：ATR(14) 佔當前股價百分比，低於 1.5% 為低波動、1.5~3% 為中波動、高於 3% 為高波動。<br/>
+    兩個維度組合後查詢 3x5 決策矩陣，給出對應操作建議。
+  </div>
+
+  <!-- Loading -->
+  <div id="loadingBox" class="loading hidden">
+    <div class="spinner"></div>
+    <div>資料載入中，請稍候...</div>
+  </div>
+
+  <!-- Error -->
+  <div id="errorBox" class="error-box hidden"></div>
+
+  <!-- Results -->
+  <div id="resultBox" class="hidden">
+
+    <!-- Stock header -->
+    <div class="stock-header">
+      <div>
+        <div class="stock-title" id="rStockName"></div>
+        <div class="stock-ticker" id="rTicker"></div>
+      </div>
+      <div style="text-align:right">
+        <div class="stock-price" id="rPrice"></div>
+        <div id="rStateBadges" style="margin-top:6px; display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end;"></div>
+      </div>
+    </div>
+
+    <!-- Decision card -->
+    <div class="decision-card" id="rDecisionCard">
+      <div class="dc-label">決策建議</div>
+      <div class="dc-action" id="rAction"></div>
+      <div class="dc-desc" id="rDesc"></div>
+      <div class="dc-meta">
+        <span>風險等級：<strong id="rRisk"></strong></span>
+        <span>趨勢狀態：<strong id="rTrend"></strong></span>
+        <span>波動狀態：<strong id="rVol"></strong></span>
+      </div>
+    </div>
+
+    <!-- Price chart -->
+    <div class="chart-card">
+      <div class="card-title">近 180 天走勢</div>
+      <div class="chart-wrap"><canvas id="priceChart"></canvas></div>
+      <div class="chart-vol-wrap"><canvas id="volChart"></canvas></div>
+    </div>
+
+    <!-- Indicators -->
+    <div class="indicators-grid" id="rIndicators"></div>
+
+    <!-- Trend score bar -->
+    <div class="chart-card" id="rScoreCard">
+      <div class="card-title">趨勢評分</div>
+      <div class="score-bar-wrap">
+        <div class="score-bar-label">
+          <span>強空頭 (-8)</span>
+          <span id="rScoreVal"></span>
+          <span>強多頭 (+8)</span>
+        </div>
+        <div class="score-bar-bg">
+          <div class="score-tick"></div>
+          <div class="score-bar-fill" id="rScoreFill" style="width:0%;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Decision matrix -->
+    <div class="matrix-card">
+      <div class="card-title">完整決策矩陣</div>
+      <div class="matrix-scroll">
+        <table class="matrix-table" id="rMatrix"></table>
+      </div>
+      <p style="margin-top:12px; font-size:0.78rem; color:var(--text-muted);">
+        白色外框為當前股票所在狀態格
+      </p>
+    </div>
+
+  </div><!-- /resultBox -->
+</div>
+
+<footer class="footer">
+  資料來源：Yahoo Finance (yfinance)．本工具僅供學習參考，不構成任何投資建議。
+</footer>
+
+<script>
+// ── 顏色定義 ──────────────────────────────────────────
+const CELL_COLORS = {
+  strong_bull_low:    { bg:"#0d3318", fg:"#3fb950" },
+  strong_bull_medium: { bg:"#0f2f12", fg:"#7ee787" },
+  strong_bull_high:   { bg:"#1b3010", fg:"#7ee787" },
+  bull_low:           { bg:"#0f2f12", fg:"#7ee787" },
+  bull_medium:        { bg:"#1f2d10", fg:"#a5d678" },
+  bull_high:          { bg:"#222b10", fg:"#c5e090" },
+  sideways_low:       { bg:"#2a2300", fg:"#d29922" },
+  sideways_medium:    { bg:"#2a1e00", fg:"#e09e2e" },
+  sideways_high:      { bg:"#252525", fg:"#8b949e" },
+  bear_low:           { bg:"#2a1a0a", fg:"#e07b38" },
+  bear_medium:        { bg:"#2d1010", fg:"#ff7b72" },
+  bear_high:          { bg:"#252525", fg:"#8b949e" },
+  strong_bear_low:    { bg:"#2d0c0c", fg:"#f85149" },
+  strong_bear_medium: { bg:"#300a0a", fg:"#f85149" },
+  strong_bear_high:   { bg:"#252525", fg:"#8b949e" },
+};
+
+const TREND_ROWS = [
+  { key:"strong_bull", label:"強多頭", css:"row-strong-bull" },
+  { key:"bull",        label:"多頭",   css:"row-bull" },
+  { key:"sideways",    label:"盤整",   css:"row-sideways" },
+  { key:"bear",        label:"空頭",   css:"row-bear" },
+  { key:"strong_bear", label:"強空頭", css:"row-strong-bear" },
+];
+const VOL_COLS = [
+  { key:"low",    label:"低波動 (ATR<1.5%)" },
+  { key:"medium", label:"中波動 (1.5~3%)" },
+  { key:"high",   label:"高波動 (>3%)" },
+];
+
+let priceChartInst = null;
+let volChartInst   = null;
+
+// ── Enter 送出 ────────────────────────────────────────
+// ── Autocomplete ─────────────────────────────────────
+const tickerInput = document.getElementById('tickerInput');
+const acList = document.getElementById('autocompleteList');
+let acTimer = null;
+let acIndex = -1;
+
+tickerInput.addEventListener('input', () => {
+  clearTimeout(acTimer);
+  const q = tickerInput.value.trim();
+  if (!q) { acList.style.display = 'none'; return; }
+  acTimer = setTimeout(() => {
+    fetch(`/api/search?q=${encodeURIComponent(q)}`)
+      .then(r => r.json())
+      .then(items => {
+        acList.innerHTML = '';
+        acIndex = -1;
+        if (!items.length) { acList.style.display = 'none'; return; }
+        items.forEach(item => {
+          const li = document.createElement('li');
+          li.textContent = `${item.code}  ${item.name}`;
+          li.style.cssText = 'padding:10px 14px;cursor:pointer;color:#c9d1d9;font-size:0.9rem;border-bottom:1px solid #21262d';
+          li.addEventListener('mouseenter', () => li.style.background = '#21262d');
+          li.addEventListener('mouseleave', () => li.style.background = '');
+          li.addEventListener('mousedown', e => {
+            e.preventDefault();
+            tickerInput.value = item.code;
+            acList.style.display = 'none';
+            doSearch();
+          });
+          acList.appendChild(li);
+        });
+        acList.style.display = 'block';
+      })
+      .catch(() => {});
+  }, 250);
+});
+
+tickerInput.addEventListener('keydown', e => {
+  const items = acList.querySelectorAll('li');
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    acIndex = Math.min(acIndex + 1, items.length - 1);
+    items.forEach((li, i) => li.style.background = i === acIndex ? '#21262d' : '');
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    acIndex = Math.max(acIndex - 1, -1);
+    items.forEach((li, i) => li.style.background = i === acIndex ? '#21262d' : '');
+  } else if (e.key === 'Enter') {
+    if (acIndex >= 0 && items[acIndex]) {
+      tickerInput.value = items[acIndex].textContent.split(' ')[0];
+      acList.style.display = 'none';
+      acIndex = -1;
+    }
+    doSearch();
+  } else if (e.key === 'Escape') {
+    acList.style.display = 'none';
+  }
+});
+
+document.addEventListener('click', e => {
+  if (!tickerInput.contains(e.target) && !acList.contains(e.target)) {
+    acList.style.display = 'none';
+  }
+});
+
+// ── 查詢 ──────────────────────────────────────────────
+function doSearch() {
+  const ticker = document.getElementById('tickerInput').value.trim();
+  if (!ticker) return;
+
+  showLoading();
+
+  fetch(`/api/analyze/${encodeURIComponent(ticker)}`)
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) { showError(data.error); return; }
+      renderResult(data);
+    })
+    .catch(() => showError('網路請求失敗，請確認伺服器是否正常運作。'));
+}
+
+// ── 狀態切換 ──────────────────────────────────────────
+function showLoading() {
+  document.getElementById('explainBox').classList.add('hidden');
+  document.getElementById('loadingBox').classList.remove('hidden');
+  document.getElementById('errorBox').classList.add('hidden');
+  document.getElementById('resultBox').classList.add('hidden');
+}
+function showError(msg) {
+  document.getElementById('loadingBox').classList.add('hidden');
+  const el = document.getElementById('errorBox');
+  el.textContent = msg;
+  el.classList.remove('hidden');
+}
+
+// ── 渲染結果 ──────────────────────────────────────────
+function renderResult(data) {
+  const { ticker, name, state, decision, chart, matrix } = data;
+
+  document.getElementById('loadingBox').classList.add('hidden');
+  document.getElementById('resultBox').classList.remove('hidden');
+
+  // Stock header
+  document.getElementById('rStockName').textContent = name;
+  document.getElementById('rTicker').textContent = ticker;
+  document.getElementById('rPrice').textContent =
+    state.current_price.toLocaleString('zh-TW', { minimumFractionDigits: 2 });
+
+  const badgesEl = document.getElementById('rStateBadges');
+  badgesEl.innerHTML = '';
+  badgesEl.appendChild(makeTrendBadge(state.trend_state, state.trend_label));
+  badgesEl.appendChild(makeVolBadge(state.vol_state, state.vol_label));
+
+  // Decision card
+  const decisionBg = getCellColor(state.trend_state, state.vol_state);
+  const card = document.getElementById('rDecisionCard');
+  card.style.background = decisionBg.bg;
+  card.style.color = decisionBg.fg;
+  card.style.border = `1px solid ${decisionBg.fg}44`;
+  document.getElementById('rAction').textContent = decision.action;
+  document.getElementById('rDesc').textContent = decision.description;
+  document.getElementById('rRisk').textContent = decision.risk;
+  document.getElementById('rTrend').textContent = state.trend_label;
+  document.getElementById('rVol').textContent = state.vol_label;
+
+  // Chart
+  renderCharts(chart);
+
+  // Indicators
+  renderIndicators(state);
+
+  // Score bar
+  const score = state.trend_score;
+  const pct = Math.min(100, Math.max(0, ((score + 8) / 16) * 100));
+  document.getElementById('rScoreVal').textContent = `目前評分：${score > 0 ? '+' : ''}${score}`;
+  const fill = document.getElementById('rScoreFill');
+  fill.style.width = Math.abs(pct - 50) + '%';
+  if (score >= 0) {
+    fill.style.marginLeft = '50%';
+    fill.style.background = '#3fb950';
+  } else {
+    fill.style.marginLeft = pct + '%';
+    fill.style.background = '#f85149';
+  }
+
+  // Matrix
+  renderMatrix(matrix, state);
+}
+
+// ── 指標 Grid ─────────────────────────────────────────
+function renderIndicators(s) {
+  const grid = document.getElementById('rIndicators');
+  grid.innerHTML = '';
+
+  const rsiColor = s.rsi >= 70 ? 'up' : s.rsi <= 30 ? 'down' : 'neutral';
+  const macdColor = s.macd > s.macd_signal ? 'up' : 'down';
+  const atrColor = s.atr_pct >= 3 ? 'down' : s.atr_pct >= 1.5 ? 'neutral' : 'up';
+  const volColor = s.vol_ratio >= 1.5 ? 'up' : s.vol_ratio <= 0.7 ? 'down' : 'neutral';
+
+  const items = [
+    { label:'RSI (14)',   value: s.rsi.toFixed(1),   sub: rsiSub(s.rsi),     cls: rsiColor },
+    { label:'MACD',       value: s.macd.toFixed(3),  sub: `Signal: ${s.macd_signal.toFixed(3)}`, cls: macdColor },
+    { label:'MACD Hist',  value: s.macd_hist.toFixed(3), sub: s.macd_hist > 0 ? '正向' : '負向', cls: s.macd_hist > 0 ? 'up' : 'down' },
+    { label:'ATR (14)',   value: s.atr.toFixed(2),   sub: `佔價${s.atr_pct.toFixed(2)}%`,  cls: atrColor },
+    { label:'BB Width',   value: s.bb_width.toFixed(1) + '%', sub: s.bb_width > 8 ? '寬幅波動' : '收窄', cls: s.bb_width > 8 ? 'neutral' : 'up' },
+    { label:'MA20',       value: s.ma20.toFixed(2),  sub: s.current_price > s.ma20 ? '價在均線上' : '價在均線下', cls: s.current_price > s.ma20 ? 'up' : 'down' },
+    { label:'MA60',       value: s.ma60.toFixed(2),  sub: s.current_price > s.ma60 ? '價在均線上' : '價在均線下', cls: s.current_price > s.ma60 ? 'up' : 'down' },
+    { label:'MA200',      value: s.ma200 != null ? s.ma200.toFixed(2) : 'N/A', sub: s.ma200 != null ? (s.current_price > s.ma200 ? '價在均線上' : '價在均線下') : '資料不足', cls: s.ma200 != null ? (s.current_price > s.ma200 ? 'up' : 'down') : 'neutral' },
+    { label:'成交量倍率', value: s.vol_ratio.toFixed(2) + 'x', sub: volSub(s.vol_ratio), cls: volColor },
+  ];
+
+  items.forEach(it => {
+    const d = document.createElement('div');
+    d.className = 'ind-card';
+    d.innerHTML = `<div class="ind-label">${it.label}</div>
+                   <div class="ind-value ${it.cls}">${it.value}</div>
+                   <div class="ind-sub">${it.sub}</div>`;
+    grid.appendChild(d);
+  });
+}
+
+function rsiSub(rsi) {
+  if (rsi >= 80) return '極度超買';
+  if (rsi >= 70) return '超買區';
+  if (rsi >= 60) return '偏強';
+  if (rsi >= 40) return '中性';
+  if (rsi >= 30) return '偏弱';
+  return '超賣區';
+}
+function volSub(r) {
+  if (r >= 2.0) return '爆量';
+  if (r >= 1.5) return '放量';
+  if (r >= 0.8) return '正常';
+  return '縮量';
+}
+
+// ── 趨勢 / 波動 Badge ────────────────────────────────
+function makeTrendBadge(state, label) {
+  const d = document.createElement('span');
+  d.className = 'trend-badge';
+  const colorMap = {
+    strong_bull: { bg:'#0d3318', fg:'#3fb950' },
+    bull:        { bg:'#0f2f12', fg:'#7ee787' },
+    sideways:    { bg:'#2a2300', fg:'#d29922' },
+    bear:        { bg:'#2a1a0a', fg:'#e07b38' },
+    strong_bear: { bg:'#2d0c0c', fg:'#f85149' },
+  };
+  const c = colorMap[state] || { bg:'#21262d', fg:'#8b949e' };
+  d.style.background = c.bg;
+  d.style.color = c.fg;
+  d.textContent = label;
+  return d;
+}
+function makeVolBadge(state, label) {
+  const d = document.createElement('span');
+  d.className = 'trend-badge';
+  const colorMap = {
+    low:    { bg:'#0f2f12', fg:'#7ee787' },
+    medium: { bg:'#2a2300', fg:'#d29922' },
+    high:   { bg:'#2d0c0c', fg:'#f85149' },
+  };
+  const c = colorMap[state] || { bg:'#21262d', fg:'#8b949e' };
+  d.style.background = c.bg;
+  d.style.color = c.fg;
+  d.textContent = label;
+  return d;
+}
+
+// ── 決策矩陣 Table ───────────────────────────────────
+function renderMatrix(matrix, currentState) {
+  const table = document.getElementById('rMatrix');
+  table.innerHTML = '';
+
+  // Header row
+  const thead = table.createTHead();
+  const headRow = thead.insertRow();
+  const th0 = document.createElement('th');
+  th0.textContent = '趨勢 \\ 波動';
+  headRow.appendChild(th0);
+  VOL_COLS.forEach(vc => {
+    const th = document.createElement('th');
+    th.textContent = vc.label;
+    headRow.appendChild(th);
+  });
+
+  const tbody = table.createTBody();
+  TREND_ROWS.forEach(tr => {
+    const row = tbody.insertRow();
+    const tdLabel = row.insertCell();
+    tdLabel.innerHTML = `<span class="${tr.css}">${tr.label}</span>`;
+
+    VOL_COLS.forEach(vc => {
+      const key = tr.key + '_' + vc.key;
+      const cell = matrix[key] || {};
+      const td = row.insertCell();
+      const cc = CELL_COLORS[key] || { bg:'#21262d', fg:'#8b949e' };
+      td.style.background = cc.bg;
+      td.style.color = cc.fg;
+      td.innerHTML = `<div class="cell-action">${cell.action || '-'}</div>
+                      <div class="cell-risk">風險：${cell.risk || '-'}</div>`;
+
+      // 標記當前狀態
+      if (tr.key === currentState.trend_state && vc.key === currentState.vol_state) {
+        td.classList.add('active-cell');
+        td.style.outlineColor = cc.fg;
+        td.style.boxShadow = `0 0 0 2px ${cc.fg}`;
+      }
+    });
+  });
+}
+
+function getCellColor(trendState, volState) {
+  return CELL_COLORS[trendState + '_' + volState] || { bg:'#21262d', fg:'#8b949e' };
+}
+
+// ── Chart.js ─────────────────────────────────────────
+function renderCharts(chart) {
+  if (priceChartInst) priceChartInst.destroy();
+  if (volChartInst)   volChartInst.destroy();
+
+  const priceCtx = document.getElementById('priceChart').getContext('2d');
+  priceChartInst = new Chart(priceCtx, {
+    type: 'line',
+    data: {
+      labels: chart.dates,
+      datasets: [
+        {
+          label: '收盤價',
+          data: chart.prices,
+          borderColor: '#58a6ff',
+          backgroundColor: 'rgba(88,166,255,0.08)',
+          borderWidth: 1.5,
+          pointRadius: 0,
+          fill: true,
+          tension: 0.2,
+          order: 1,
+        },
+        {
+          label: 'MA20',
+          data: chart.ma20,
+          borderColor: '#d29922',
+          borderWidth: 1.2,
+          pointRadius: 0,
+          fill: false,
+          spanGaps: true,
+          order: 2,
+        },
+        {
+          label: 'MA60',
+          data: chart.ma60,
+          borderColor: '#f85149',
+          borderWidth: 1.2,
+          pointRadius: 0,
+          fill: false,
+          spanGaps: true,
+          order: 3,
+        },
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color:'#8b949e', boxWidth:12, font:{ size:11 } } },
+        tooltip: {
+          backgroundColor: '#161b22',
+          borderColor: '#30363d',
+          borderWidth: 1,
+          titleColor: '#e6edf3',
+          bodyColor: '#8b949e',
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color:'#8b949e', maxTicksLimit: 8, font:{ size:10 } },
+          grid: { color:'#21262d' }
+        },
+        y: {
+          ticks: { color:'#8b949e', font:{ size:10 } },
+          grid: { color:'#21262d' }
+        }
+      }
+    }
+  });
+
+  const volCtx = document.getElementById('volChart').getContext('2d');
+  const volColors = chart.volumes.map(v => 'rgba(88,166,255,0.4)');
+  volChartInst = new Chart(volCtx, {
+    type: 'bar',
+    data: {
+      labels: chart.dates,
+      datasets: [{
+        label: '成交量',
+        data: chart.volumes,
+        backgroundColor: volColors,
+        borderWidth: 0,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display:false }, tooltip: { enabled: false } },
+      scales: {
+        x: {
+          ticks: { display: false },
+          grid: { display: false }
+        },
+        y: {
+          ticks: { color:'#8b949e', maxTicksLimit:3, font:{ size:9 } },
+          grid: { color:'#21262d' }
+        }
+      }
+    }
+  });
+}
+</script>
+
+</body>
+</html>

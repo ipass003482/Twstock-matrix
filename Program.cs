@@ -13,6 +13,7 @@ builder.Services.AddHttpClient();
 builder.Services.AddHttpClient<FinmindService>();
 builder.Services.AddSingleton<StockCatalogService>();
 builder.Services.AddSingleton<DecisionMatrixService>();
+builder.Services.AddHttpClient<VixService>();
 
 var app = builder.Build();
 app.UseStaticFiles();
@@ -94,6 +95,13 @@ app.MapGet("/api/analyze/{ticker}", async (
     };
 
     return Results.Json(result, jsonOpts);
+});
+
+// ── GET /api/vix ─────────────────────────────────────
+app.MapGet("/api/vix", async (VixService vix) =>
+{
+    var snap = await vix.GetAsync();
+    return Results.Json(snap, jsonOpts);
 });
 
 // ── 所有其他請求回傳 index.html（SPA fallback）────────────

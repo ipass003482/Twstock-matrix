@@ -53,6 +53,9 @@ public class DecisionMatrixService
         double atr   = atrArr[^1];
         double atrPct = atr / last * 100;
 
+        var adxArr = IndicatorService.Adx(bars.ToArray(), 14);
+        double adx = adxArr[^1];
+
         var sma20Arr = IndicatorService.Sma(closes, 20);
         var (bbUpper, bbMid, bbLower) = IndicatorService.Bollinger(closes);
         double bbWidth = bbMid[^1] > 0
@@ -98,6 +101,14 @@ public class DecisionMatrixService
             _       => ("sideways",     "盤整"),
         };
 
+        // ADX filter (Wilder): ADX < 20 and no confirmed data (adx==0 means insufficient bars)
+        // When market is NOT trending (ADX < 20) and signal is only weak, downgrade to sideways
+        if (adx > 0 && adx < 20 && (trendState == "bull" || trendState == "bear"))
+        {
+            trendState = "sideways";
+            trendLabel = "盤整";
+        }
+
         var (volState, volLabel) = atrPct switch
         {
             < 1.5 => ("low",    "低波動"),
@@ -122,6 +133,7 @@ public class DecisionMatrixService
             AtrPct       = Math.Round(atrPct, 2),
             BbWidth      = Math.Round(bbWidth, 2),
             VolRatio     = Math.Round(vRatio, 2),
+            Adx          = Math.Round(adx, 2),
         };
     }
 

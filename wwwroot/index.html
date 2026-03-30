@@ -261,6 +261,33 @@
       margin-top: 40px;
     }
 
+    /* ── VIX Banner ── */
+    .vix-banner {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 24px;
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      font-size: 0.88rem;
+      flex-wrap: wrap;
+    }
+    .vix-item { display: flex; align-items: center; gap: 8px; }
+    .vix-item-label { color: var(--text-muted); font-size: 0.78rem; white-space: nowrap; }
+    .vix-value { font-size: 1.15rem; font-weight: 700; }
+    .vix-tag {
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.72rem;
+      font-weight: 600;
+    }
+    .vix-tag.calm   { background: #0d3318; color: #3fb950; }
+    .vix-tag.normal { background: #2a2300; color: #d29922; }
+    .vix-tag.fear   { background: #2d1a00; color: #f4a037; }
+    .vix-tag.panic  { background: #2d0c0c; color: #f85149; }
+    .vix-divider { width: 1px; height: 28px; background: var(--border); flex-shrink: 0; }
+    .vix-updated { color: var(--text-muted); font-size: 0.7rem; margin-left: auto; }
+
     /* ── Misc ── */
     .hidden { display: none !important; }
     .trend-badge { padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; }
@@ -285,6 +312,22 @@
     <span>Taiwan Index Market State Decision Matrix</span>
   </div>
 </header>
+
+<!-- VIX Banner -->
+<div class="vix-banner" id="vixBanner">
+  <div class="vix-item">
+    <span class="vix-item-label">美股恐慌指數 (CBOE VIX)</span>
+    <span class="vix-value" id="usVixVal" style="color:var(--text-muted)">--</span>
+    <span class="vix-tag normal" id="usVixTag">載入中</span>
+  </div>
+  <div class="vix-divider"></div>
+  <div class="vix-item">
+    <span class="vix-item-label">台灣波動指數 (TWVIX)</span>
+    <span class="vix-value" id="twVixVal" style="color:var(--text-muted)">--</span>
+    <span class="vix-tag normal" id="twVixTag">載入中</span>
+  </div>
+  <span class="vix-updated" id="vixUpdated"></span>
+</div>
 
 <div class="search-wrap">
   <div class="search-box" style="position:relative">
@@ -383,7 +426,7 @@
 </div>
 
 <footer class="footer">
-  資料來源：Yahoo Finance (yfinance)．本工具僅供學習參考，不構成任何投資建議。
+  資料來源：Finmind API（台股歷史價格）・CBOE VIX / TWVIX・本工具僅供學習參考，不構成任何投資建議。
 </footer>
 
 <script>
@@ -588,6 +631,7 @@ function renderIndicators(s) {
     { label:'MACD Hist',  value: s.macd_hist.toFixed(3), sub: s.macd_hist > 0 ? '正向' : '負向', cls: s.macd_hist > 0 ? 'up' : 'down' },
     { label:'ATR (14)',   value: s.atr.toFixed(2),   sub: `佔價${s.atr_pct.toFixed(2)}%`,  cls: atrColor },
     { label:'BB Width',   value: s.bb_width.toFixed(1) + '%', sub: s.bb_width > 8 ? '寬幅波動' : '收窄', cls: s.bb_width > 8 ? 'neutral' : 'up' },
+    { label:'ADX (14)',   value: s.adx != null ? s.adx.toFixed(1) : 'N/A', sub: adxSub(s.adx), cls: s.adx >= 25 ? 'up' : s.adx >= 20 ? 'neutral' : 'down' },
     { label:'MA20',       value: s.ma20.toFixed(2),  sub: s.current_price > s.ma20 ? '價在均線上' : '價在均線下', cls: s.current_price > s.ma20 ? 'up' : 'down' },
     { label:'MA60',       value: s.ma60.toFixed(2),  sub: s.current_price > s.ma60 ? '價在均線上' : '價在均線下', cls: s.current_price > s.ma60 ? 'up' : 'down' },
     { label:'MA200',      value: s.ma200 != null ? s.ma200.toFixed(2) : 'N/A', sub: s.ma200 != null ? (s.current_price > s.ma200 ? '價在均線上' : '價在均線下') : '資料不足', cls: s.ma200 != null ? (s.current_price > s.ma200 ? 'up' : 'down') : 'neutral' },
@@ -617,6 +661,13 @@ function volSub(r) {
   if (r >= 1.5) return '放量';
   if (r >= 0.8) return '正常';
   return '縮量';
+}
+function adxSub(v) {
+  if (!v && v !== 0) return 'N/A';
+  if (v >= 40) return '超強趨勢';
+  if (v >= 25) return '有趨勢 (Elder確認)';
+  if (v >= 20) return '邊界地帶';
+  return '無趨勢/盤整 (Wilder)';
 }
 
 // ── 趨勢 / 波動 Badge ────────────────────────────────
@@ -797,9 +848,61 @@ function renderCharts(chart) {
         }
       }
     }
-  });
+  // ── VIX 載入 ─────────────────────────────────────────
+function applyVixStyle(valEl, tagEl, value) {
+  if (value == null) {
+    valEl.textContent = 'N/A';
+    valEl.style.color = 'var(--text-muted)';
+    tagEl.textContent = '暫無資料';
+    tagEl.className = 'vix-tag normal';
+    return;
+  }
+  valEl.textContent = value.toFixed(2);
+  let cls, label;
+  if (value < 15)      { cls = 'calm';   label = '市場平靜'; }
+  else if (value < 20) { cls = 'normal'; label = '正常波動'; }
+  else if (value < 30) { cls = 'fear';   label = '市場焦慮'; }
+  else                 { cls = 'panic';  label = '極度恐慕'; }
+  tagEl.className   = 'vix-tag ' + cls;
+  tagEl.textContent = label;
+  const colorMap = { calm:'var(--green)', normal:'var(--yellow)', fear:'#f4a037', panic:'var(--red)' };
+  valEl.style.color = colorMap[cls];
 }
-</script>
+
+function loadVix() {
+  fetch('/api/vix')
+    .then(r => r.json())
+    .then(data => {
+      applyVixStyle(
+        document.getElementById('usVixVal'),
+        document.getElementById('usVixTag'),
+        data.us_vix
+      );
+      applyVixStyle(
+        document.getElementById('twVixVal'),
+        document.getElementById('twVixTag'),
+        data.tw_vix
+      );
+      if (data.updated_at) {
+        document.getElementById('vixUpdated').textContent = '更新: ' + data.updated_at;
+      }
+    })
+    .catch(() => {
+      ['usVixVal','twVixVal'].forEach(id => {
+        const el = document.getElementById(id);
+        el.textContent = 'N/A';
+        el.style.color = 'var(--text-muted)';
+      });
+      ['usVixTag','twVixTag'].forEach(id => {
+        const el = document.getElementById(id);
+        el.textContent = '無法載入';
+        el.className = 'vix-tag normal';
+      });
+    });
+}
+
+document.addEventListener('DOMContentLoaded', loadVix);
+
 
 </body>
 </html>

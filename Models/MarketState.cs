@@ -19,4 +19,5 @@ public class MarketState
     public double AtrPct { get; set; }
     public double BbWidth { get; set; }
     public double VolRatio { get; set; }
+    public double Adx { get; set; }
 }

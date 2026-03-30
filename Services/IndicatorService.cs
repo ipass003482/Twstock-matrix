@@ -107,4 +107,68 @@ public static class IndicatorService
         var avg = values.Average();
         return Math.Sqrt(values.Select(v => (v - avg) * (v - avg)).Average());
     }
+
+    /// <summary>
+    /// Average Directional Index (ADX) by Welles Wilder.
+    /// ADX > 25 = trending, ADX &lt; 20 = ranging/no-trend.
+    /// First valid value at index (period * 2 - 1).
+    /// </summary>
+    public static double[] Adx(StockBar[] bars, int period = 14)
+    {
+        int n   = bars.Length;
+        var adx = new double[n];
+        if (n < period * 2 + 1) return adx;
+
+        var pdm = new double[n];
+        var mdm = new double[n];
+        var trr = new double[n];
+
+        for (int i = 1; i < n; i++)
+        {
+            double up   = bars[i].High - bars[i - 1].High;
+            double down = bars[i - 1].Low - bars[i].Low;
+            pdm[i] = (up > down   && up   > 0) ? up   : 0;
+            mdm[i] = (down > up   && down > 0) ? down : 0;
+            trr[i] = Math.Max(bars[i].High - bars[i].Low,
+                     Math.Max(Math.Abs(bars[i].High - bars[i - 1].Close),
+                              Math.Abs(bars[i].Low  - bars[i - 1].Close)));
+        }
+
+        // Wilder initial sums (indices 1..period)
+        double sTr = 0, sPdm = 0, sMdm = 0;
+        for (int i = 1; i <= period; i++) { sTr += trr[i]; sPdm += pdm[i]; sMdm += mdm[i]; }
+
+        // Build DX array
+        var dx = new double[n];
+        dx[period] = AdxCalcDx(sPdm, sMdm, sTr);
+        for (int i = period + 1; i < n; i++)
+        {
+            sTr  = sTr  - sTr  / period + trr[i];
+            sPdm = sPdm - sPdm / period + pdm[i];
+            sMdm = sMdm - sMdm / period + mdm[i];
+            dx[i] = AdxCalcDx(sPdm, sMdm, sTr);
+        }
+
+        // Initial ADX = average of dx[period .. 2*period-1]
+        double dxSum = 0;
+        for (int i = period; i < period * 2; i++) dxSum += dx[i];
+        double adxVal = dxSum / period;
+        adx[period * 2 - 1] = adxVal;
+
+        for (int i = period * 2; i < n; i++)
+        {
+            adxVal = (adxVal * (period - 1) + dx[i]) / period;
+            adx[i] = adxVal;
+        }
+        return adx;
+    }
+
+    private static double AdxCalcDx(double pdm, double mdm, double tr)
+    {
+        if (tr == 0) return 0;
+        double pdi = 100.0 * pdm / tr;
+        double mdi = 100.0 * mdm / tr;
+        double sum = pdi + mdi;
+        return sum == 0 ? 0 : 100.0 * Math.Abs(pdi - mdi) / sum;
+    }
 }

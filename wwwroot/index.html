@@ -288,6 +288,57 @@
     .vix-divider { width: 1px; height: 28px; background: var(--border); flex-shrink: 0; }
     .vix-updated { color: var(--text-muted); font-size: 0.7rem; margin-left: auto; }
 
+    /* ── Auto Screener ── */
+    .watchlist-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin-bottom: 20px;
+    }
+    .btn-scan {
+      background: #3fb950;
+      color: #0d1117;
+      border: none;
+      border-radius: 6px;
+      padding: 9px 22px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity .15s;
+    }
+    .btn-scan:disabled { opacity: 0.4; cursor: default; }
+    .btn-scan:not(:disabled):hover { opacity: .85; }
+    .scan-progress { font-size: 0.85rem; color: var(--text-muted); margin-top: 12px; text-align: center; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .scan-results { margin-top: 16px; }
+    .scan-summary { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 10px; }
+    .scan-summary strong { color: var(--text); }
+    .scan-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    .scan-table th {
+      background: var(--surface2);
+      color: var(--text-muted);
+      padding: 9px 12px;
+      text-align: left;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .scan-table td {
+      padding: 9px 12px;
+      border-top: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    .scan-table tr:hover td { background: var(--surface2); }
+    .btn-view {
+      background: none;
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      border-radius: 5px;
+      padding: 3px 10px;
+      font-size: 0.78rem;
+      cursor: pointer;
+    }
+    .btn-view:hover { background: var(--accent); color: #0d1117; }
+
     /* ── Misc ── */
     .hidden { display: none !important; }
     .trend-badge { padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; }
@@ -338,6 +389,41 @@
 </div>
 
 <div class="main">
+
+  <!-- 自動選股掃描 -->
+  <div class="watchlist-section" id="watchlistSection">
+    <div class="card-title">自動選股
+      <span style="font-weight:400;color:var(--text-muted);text-transform:none;letter-spacing:0;font-size:0.8rem;margin-left:6px">篩選放量且多頭的標的</span>
+    </div>
+
+    <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:16px;line-height:1.7">
+      一鍵掃描約 60 支熱門台股（台積電、聯發科、ETF 等），自動找出
+      <strong style="color:var(--green)">趨勢為強多頭 / 多頭 + 成交量 &gt;= 1.5x（20 日均量）</strong>的標的。
+    </p>
+
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:16px">
+      <button class="btn-scan" id="btnPopularScan" onclick="doPopularScan()">一鍵掃描熱門台股（約 60 支）</button>
+      <span style="color:var(--text-muted);font-size:0.8rem">掃描時間約 30～60 秒</span>
+    </div>
+
+    <details>
+      <summary style="cursor:pointer;color:var(--text-muted);font-size:0.82rem;user-select:none;padding:4px 0">或自行輸入股票代號（選填）</summary>
+      <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <input id="customTickersInput" type="text"
+          placeholder="多個代號用逗號分隔，例如：2330,0050,2454"
+          style="flex:1;min-width:200px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--text);font-size:0.9rem;outline:none"
+          onkeydown="if(event.key==='Enter')doCustomScan()" />
+        <button class="btn-scan" id="btnCustomScan" onclick="doCustomScan()" style="background:var(--accent);color:#0d1117">掃描自選股</button>
+      </div>
+    </details>
+
+    <div id="scanLoading" class="scan-progress hidden">
+      <div class="spinner" style="width:18px;height:18px;border-width:2px"></div>
+      <span id="scanProgressText">掃描中，請稍候（約 30～60 秒）...</span>
+    </div>
+
+    <div id="scanResults" class="scan-results hidden"></div>
+  </div>
 
   <!-- 說明方法 -->
   <div class="method-explain" id="explainBox">
@@ -901,6 +987,117 @@ function loadVix() {
         el.className = 'vix-tag normal';
       });
     });
+}
+
+// ── 自選股掃描 ─────────────────────────────────────────
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+async function doPopularScan() {
+  await runScan('/api/scan/popular', '熱門台股（約 60 支）');
+}
+
+async function doCustomScan() {
+  const val = document.getElementById('customTickersInput').value.trim();
+  if (!val) { alert('請輸入至少一個股票代號，用逗號分隔'); return; }
+  await runScan('/api/scan?tickers=' + encodeURIComponent(val), '自選股');
+}
+
+async function runScan(url, label) {
+  const scanLoading  = document.getElementById('scanLoading');
+  const scanResults  = document.getElementById('scanResults');
+  const btnPopular   = document.getElementById('btnPopularScan');
+  const btnCustom    = document.getElementById('btnCustomScan');
+  const progressText = document.getElementById('scanProgressText');
+
+  scanLoading.classList.remove('hidden');
+  scanResults.classList.add('hidden');
+  btnPopular.disabled = true;
+  btnCustom.disabled  = true;
+  progressText.textContent = `掃描 ${label} 中，請稍候（約 30～60 秒）...`;
+
+  try {
+    const res  = await fetch(url);
+    const raw  = await res.json();
+    const data = Array.isArray(raw) ? raw : (raw.value || []);
+    renderScanResults(data);
+  } catch {
+    const el = document.getElementById('scanResults');
+    el.innerHTML = '<p style="color:var(--red);margin-top:12px">掃描失敗，請確認伺服器狀態。</p>';
+    el.classList.remove('hidden');
+  } finally {
+    scanLoading.classList.add('hidden');
+    btnPopular.disabled = false;
+    btnCustom.disabled  = false;
+  }
+}
+
+
+
+function renderScanResults(allData) {
+  const matched = allData
+    .filter(d => (d.trend_state === 'strong_bull' || d.trend_state === 'bull') && d.vol_ratio >= 1.5)
+    .sort((a, b) => b.vol_ratio - a.vol_ratio);
+
+  const total = allData.length;
+  const el    = document.getElementById('scanResults');
+
+  if (!matched.length) {
+    el.innerHTML = `
+      <div class="scan-summary" style="margin-top:12px">
+        掃描完成，共分析 <strong>${total}</strong> 支，<strong style="color:var(--text-muted)">無符合條件的標的</strong>
+        <br><span style="font-size:0.78rem">（條件：強多頭 / 多頭 + 成交量 &gt;= 1.5x 均量）</span>
+      </div>`;
+    el.classList.remove('hidden');
+    return;
+  }
+
+  const rows = matched.map(d => {
+    const isSBull  = d.trend_state === 'strong_bull';
+    const trendFg  = isSBull ? '#3fb950' : '#7ee787';
+    const trendBg  = isSBull ? '#0d3318' : '#0f2f12';
+    const volFg    = d.vol_ratio >= 2.0 ? '#ff9500' : '#58a6ff';
+    const adxStr   = (d.adx != null && d.adx > 0) ? d.adx.toFixed(1) : 'N/A';
+    const adxColor = d.adx >= 25 ? '#3fb950' : d.adx >= 20 ? '#d29922' : '#8b949e';
+    const ticker   = escHtml(d.ticker);
+    const name     = escHtml(d.name);
+    const action   = escHtml(d.action);
+    const trendLbl = escHtml(d.trend_label);
+    return `<tr>
+      <td><strong style="cursor:pointer;color:var(--accent)" onclick="loadFromScan('${ticker}')">${ticker}</strong></td>
+      <td>${name}</td>
+      <td><span style="background:${trendBg};color:${trendFg};padding:3px 8px;border-radius:12px;font-size:0.78rem;font-weight:600">${trendLbl}</span></td>
+      <td style="color:${volFg};font-weight:700">${d.vol_ratio.toFixed(2)}x</td>
+      <td style="color:${adxColor}">${adxStr}</td>
+      <td style="color:${trendFg}">${action}</td>
+      <td><button class="btn-view" onclick="loadFromScan('${ticker}')">查看</button></td>
+    </tr>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="scan-summary" style="margin-top:12px">
+      掃描 <strong>${total}</strong> 支，符合條件（強多頭 / 多頭 + 量 &gt;= 1.5x）：<strong style="color:#3fb950">${matched.length} 支</strong>，依量倍率排序
+    </div>
+    <div style="overflow-x:auto">
+      <table class="scan-table">
+        <thead><tr>
+          <th>代號</th><th>名稱</th><th>趨勢</th><th>量倍率</th><th>ADX</th><th>決策建議</th><th></th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  el.classList.remove('hidden');
+}
+
+function loadFromScan(ticker) {
+  document.getElementById('tickerInput').value = ticker;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  setTimeout(() => doSearch(), 150);
 }
 
 document.addEventListener('DOMContentLoaded', loadVix);

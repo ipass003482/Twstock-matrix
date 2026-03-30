@@ -848,7 +848,10 @@ function renderCharts(chart) {
         }
       }
     }
-  // ── VIX 載入 ─────────────────────────────────────────
+  });
+}
+
+// ── VIX 載入 ─────────────────────────────────────────
 function applyVixStyle(valEl, tagEl, value) {
   if (value == null) {
     valEl.textContent = 'N/A';
@@ -902,7 +905,7 @@ function loadVix() {
 }
 
 document.addEventListener('DOMContentLoaded', loadVix);
-
+</script>
 
 </body>
 </html>

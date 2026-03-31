@@ -1,3 +1,5 @@
+using System.Net.WebSockets;
+using System.Text;
 using System.Text.Json;
 
 namespace StockMatrix.Services;
@@ -15,9 +17,11 @@ public class VixService
 
     public async Task<VixSnapshot> GetAsync()
     {
-        var us = await FetchUsVixAsync();
-        var tw = await FetchTwVixAsync();
-        return new VixSnapshot(us, tw, DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm") + " UTC");
+        var usTask = FetchUsVixAsync();
+        var twTask = FetchTwVixAsync();
+        await Task.WhenAll(usTask, twTask);
+        return new VixSnapshot(await usTask, await twTask,
+            DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm") + " UTC");
     }
 
     // ── US VIX via stooq.com (fallback: Yahoo Finance) ────────────────
@@ -75,35 +79,89 @@ public class VixService
         catch { return null; }
     }
 
-    // ── Taiwan VIX via Finmind TaiwanVarianceIndex ────────────────────
+    // ── Taiwan VIX via TAIFEX SockJS WebSocket (free, official source) ──
     private async Task<double?> FetchTwVixAsync()
     {
+        // TAIFEX real-time feed uses SockJS. The WebSocket transport path is:
+        // wss://mis.taifex.com.tw/futures/rt/{server}/{session}/websocket
+        // SockJS framing: 'o' = open, 'a[...]' = data, 'h' = heartbeat
+        // Subscribe message format: ["{"type":"subscribe","symbols":["TVIX"]}"]
+        var sessionId = Guid.NewGuid().ToString("N")[..8];
+        var wsUri = new Uri($"wss://mis.taifex.com.tw/futures/rt/000/{sessionId}/websocket");
+
+        using var ws = new ClientWebSocket();
+        ws.Options.SetRequestHeader("Origin", "https://mis.taifex.com.tw");
+        ws.Options.SetRequestHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
+
+        using var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(5));
         try
         {
-            var start = DateTime.Today.AddDays(-14).ToString("yyyy-MM-dd");
-            var end   = DateTime.Today.ToString("yyyy-MM-dd");
-            var url   = $"https://api.finmindtrade.com/api/v4/data?dataset=TaiwanVarianceIndex&data_id=TWVIX&start_date={start}&end_date={end}";
+            await ws.ConnectAsync(wsUri, cts.Token);
 
-            using var resp = await _http.GetAsync(url);
-            if (!resp.IsSuccessStatusCode) return null;
+            var buf = new byte[8192];
+            var seg = new ArraySegment<byte>(buf);
 
-            using var doc = await JsonDocument.ParseAsync(await resp.Content.ReadAsStreamAsync());
-            var root = doc.RootElement;
+            // Read the SockJS open frame ('o')
+            var result = await ws.ReceiveAsync(seg, cts.Token);
+            var frame  = Encoding.UTF8.GetString(buf, 0, result.Count);
+            if (!frame.StartsWith("o")) return null;
 
-            if (!root.TryGetProperty("status", out var statusEl) || statusEl.GetInt32() != 200)
-                return null;
-            if (!root.TryGetProperty("data", out var dataEl) || dataEl.GetArrayLength() == 0)
-                return null;
+            // Send subscribe for TVIX (Taiwan VIX index symbol on TAIFEX)
+            // SockJS frame format: ["JSON-encoded-string"]
+            var innerMsg = JsonSerializer.Serialize(new { type = "subscribe", symbols = new[] { "TVIX" } });
+            var subMsg   = JsonSerializer.Serialize(new[] { innerMsg });  // ["..."]
+            var subBytes = Encoding.UTF8.GetBytes(subMsg);
+            await ws.SendAsync(new ArraySegment<byte>(subBytes),
+                WebSocketMessageType.Text, true, cts.Token);
 
-            var last = dataEl.EnumerateArray().Last();
-            foreach (var field in new[] { "vix", "close", "TWVIX", "value", "VIX" })
+            // Read up to 3 frames looking for quote data
+            for (int i = 0; i < 3; i++)
             {
-                if (last.TryGetProperty(field, out var el) && el.ValueKind == JsonValueKind.Number)
-                    return Math.Round(el.GetDouble(), 2);
+                result = await ws.ReceiveAsync(seg, cts.Token);
+                frame  = Encoding.UTF8.GetString(buf, 0, result.Count);
+
+                if (frame.StartsWith("h")) continue; // heartbeat
+                if (!frame.StartsWith("a")) continue;
+
+                // SockJS data frame: a["json-string"]
+                var inner = frame[2..^1]; // strip 'a[' and ']'
+                inner = inner.Trim('"').Replace("\\\"", "\"").Replace("\\\\", "\\");
+
+                using var doc = JsonDocument.Parse(inner);
+                var root = doc.RootElement;
+
+                if (!root.TryGetProperty("type", out var typeEl) ||
+                    typeEl.GetString() != "quote") continue;
+
+                if (!root.TryGetProperty("quote", out var quoteEl)) continue;
+                if (!quoteEl.TryGetProperty("values", out var valuesEl)) continue;
+
+                // Try common field names for the VIX index value
+                foreach (var field in new[] { "IndexValue", "Close", "Price", "LastPrice",
+                                               "close", "price", "value", "last" })
+                {
+                    if (valuesEl.TryGetProperty(field, out var el))
+                    {
+                        if (el.ValueKind == JsonValueKind.Number)
+                            return Math.Round(el.GetDouble(), 2);
+                        if (el.ValueKind == JsonValueKind.String &&
+                            double.TryParse(el.GetString(),
+                                System.Globalization.NumberStyles.Any,
+                                System.Globalization.CultureInfo.InvariantCulture,
+                                out var dv))
+                            return Math.Round(dv, 2);
+                    }
+                }
             }
             return null;
         }
         catch { return null; }
+        finally
+        {
+            if (ws.State == WebSocketState.Open)
+                await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "",
+                    System.Threading.CancellationToken.None).ConfigureAwait(false);
+        }
     }
 
     // ── CSV parser for stooq format: Date,Open,High,Low,Close,Volume ──

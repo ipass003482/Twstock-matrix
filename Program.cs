@@ -14,6 +14,7 @@ builder.Services.AddHttpClient<FinmindService>();
 builder.Services.AddSingleton<StockCatalogService>();
 builder.Services.AddSingleton<DecisionMatrixService>();
 builder.Services.AddHttpClient<VixService>();
+builder.Services.AddHostedService<WarrantNewsService>();
 
 var app = builder.Build();
 app.UseStaticFiles();
@@ -241,6 +242,14 @@ app.MapGet("/api/scan/popular", async (
     await Task.WhenAll(tasks2);
 
     return Results.Json(bag2.ToList(), jsonOpts);
+});
+
+// ── GET /api/warrants/news ──────────────────────────────
+app.MapGet("/api/warrants/news", () =>
+{
+    var items = WarrantNewsService.GetNews();
+    var last = WarrantNewsService.LastFetch;
+    return Results.Json(new { last_fetch = last, news = items }, jsonOpts);
 });
 
 // ── 所有其他請求回傳 index.html（SPA fallback）────────────

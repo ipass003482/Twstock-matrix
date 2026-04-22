@@ -339,6 +339,55 @@
     }
     .btn-view:hover { background: var(--accent); color: #0d1117; }
 
+    /* ── Warrant News ── */
+    .warrant-news {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 24px 12px;
+    }
+    .warrant-news-header {
+      font-size: 0.74rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .warrant-news-badge {
+      background: #1f2200;
+      color: #d29922;
+      border-radius: 10px;
+      padding: 1px 8px;
+      font-size: 0.68rem;
+      font-weight: 600;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+    .warrant-news-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+    }
+    .warrant-news-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 5px 11px;
+      font-size: 0.82rem;
+      text-decoration: none;
+      color: var(--text);
+      transition: border-color .15s, color .15s;
+      white-space: nowrap;
+    }
+    .warrant-news-item:hover { border-color: var(--accent); color: var(--accent); }
+    .warrant-news-time { color: var(--text-muted); font-size: 0.71rem; }
+
     /* ── Misc ── */
     .hidden { display: none !important; }
     .trend-badge { padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; }
@@ -377,6 +426,16 @@
     <span class="vix-tag normal" id="twVixTag">載入中</span>
   </div>
   <span class="vix-updated" id="vixUpdated"></span>
+</div>
+
+<!-- 權證特區新聞 -->
+<div class="warrant-news" id="warrantNewsSection" style="display:none">
+  <div class="warrant-news-header">
+    權證特區
+    <span class="warrant-news-badge">經濟日報</span>
+    <span style="font-size:0.68rem;color:var(--text-muted);font-weight:400;text-transform:none;letter-spacing:0" id="warrantNewsFetch"></span>
+  </div>
+  <div class="warrant-news-list" id="warrantNewsList"></div>
 </div>
 
 <div class="search-wrap">
@@ -1100,7 +1159,23 @@ function loadFromScan(ticker) {
   setTimeout(() => doSearch(), 150);
 }
 
-document.addEventListener('DOMContentLoaded', loadVix);
+async function loadWarrantNews() {
+  try {
+    const r = await fetch('/api/warrants/news');
+    const data = await r.json();
+    if (!data.news || !data.news.length) return;
+    const list = document.getElementById('warrantNewsList');
+    const section = document.getElementById('warrantNewsSection');
+    list.innerHTML = data.news.map(n => {
+      const time = n.published_at.substring(11, 16);
+      return `<a class="warrant-news-item" href="${n.url}" target="_blank" rel="noopener noreferrer"><span>${escHtml(n.title)}</span><span class="warrant-news-time">${time}</span></a>`;
+    }).join('');
+    if (data.last_fetch) document.getElementById('warrantNewsFetch').textContent = `更新：${data.last_fetch}`;
+    section.style.display = '';
+  } catch (e) { /* silent */ }
+}
+
+document.addEventListener('DOMContentLoaded', () => { loadVix(); loadWarrantNews(); });
 </script>
 
 </body>

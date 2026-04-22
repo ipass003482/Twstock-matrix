@@ -83,6 +83,7 @@ def atr(df, period=14):
 
 def build_features(df):
     out = pd.DataFrame(index=df.index)
+    out["date"]           = df["date"]
     out["returns_1d"]     = df["close"].pct_change(1)
     out["returns_5d"]     = df["close"].pct_change(5)
     out["returns_10d"]    = df["close"].pct_change(10)
@@ -97,6 +98,60 @@ def build_features(df):
         lo, hi = out[col].quantile([0.01, 0.99])
         out[col] = out[col].clip(lo, hi)
     return out
+
+
+def walk_forward_backtest(data, n_folds=5, min_train_days=180):
+    """
+    Walk-forward validation: split by time, train on past, test on future.
+    Mimics real-world deployment where future data is unknown at training time.
+    """
+    data_sorted = data.sort_values("date").reset_index(drop=True)
+    dates = data_sorted["date"].dt.date.unique()
+    if len(dates) < min_train_days + n_folds * 20:
+        print(f"  [warn] not enough days for walk-forward ({len(dates)} days)")
+        return []
+
+    fold_size = (len(dates) - min_train_days) // n_folds
+    fold_results = []
+    for k in range(n_folds):
+        train_end_idx = min_train_days + k * fold_size
+        test_end_idx  = train_end_idx + fold_size
+        if test_end_idx > len(dates):
+            test_end_idx = len(dates)
+
+        train_end_date = dates[train_end_idx - 1]
+        test_end_date  = dates[test_end_idx - 1]
+
+        train_mask = data_sorted["date"].dt.date <= train_end_date
+        test_mask  = (data_sorted["date"].dt.date > train_end_date) & (data_sorted["date"].dt.date <= test_end_date)
+
+        train_df = data_sorted[train_mask]
+        test_df  = data_sorted[test_mask]
+        if len(train_df) < 100 or len(test_df) < 20:
+            continue
+
+        Xtr = train_df[FEATURE_NAMES].values
+        ytr = train_df["label"].values
+        Xte = test_df[FEATURE_NAMES].values
+        yte = test_df["label"].values
+
+        sc = StandardScaler().fit(Xtr)
+        clf = LogisticRegression(C=1.0, max_iter=2000, random_state=42)
+        clf.fit(sc.transform(Xtr), ytr)
+        acc = clf.score(sc.transform(Xte), yte)
+        baseline = max(yte.mean(), 1 - yte.mean())  # always-predict-majority
+        fold_results.append({
+            "fold": k + 1,
+            "train_end": str(train_end_date),
+            "test_end":  str(test_end_date),
+            "train_n":   int(len(train_df)),
+            "test_n":    int(len(test_df)),
+            "test_acc":  float(acc),
+            "baseline_majority": float(baseline),
+            "edge":      float(acc - baseline),
+        })
+        print(f"  [fold {k+1}] train<={train_end_date} ({len(train_df)}) | test<={test_end_date} ({len(test_df)}) | acc={acc:.4f} (vs majority {baseline:.4f}, edge {acc-baseline:+.4f})")
+    return fold_results
 
 
 def main():
@@ -122,11 +177,28 @@ def main():
     print(f"\nTotal samples: {len(data)}")
     print(f"Up rate (baseline): {data['label'].mean():.3f}")
 
-    X = data[FEATURE_NAMES].values
-    y = data["label"].values
+    # ── Walk-forward backtest (time-based) ──────────────────
+    print("\n=== Walk-forward backtest (5 folds) ===")
+    folds = walk_forward_backtest(data, n_folds=5)
+    if folds:
+        avg_acc  = np.mean([f["test_acc"] for f in folds])
+        avg_edge = np.mean([f["edge"]     for f in folds])
+        print(f"\nWalk-forward average test accuracy: {avg_acc:.4f}")
+        print(f"Walk-forward average edge over majority: {avg_edge:+.4f}")
+    else:
+        avg_acc, avg_edge = 0.0, 0.0
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42, shuffle=True)
+    # ── Final model: time-ordered split (last 20% = holdout) ─
+    print("\n=== Final model (chronological 80/20 split) ===")
+    data_sorted = data.sort_values("date").reset_index(drop=True)
+    split_idx = int(len(data_sorted) * 0.8)
+    train_df = data_sorted.iloc[:split_idx]
+    test_df  = data_sorted.iloc[split_idx:]
+
+    X_train = train_df[FEATURE_NAMES].values
+    y_train = train_df["label"].values
+    X_test  = test_df[FEATURE_NAMES].values
+    y_test  = test_df["label"].values
 
     scaler = StandardScaler().fit(X_train)
     X_train_s = scaler.transform(X_train)
@@ -137,8 +209,8 @@ def main():
 
     train_acc = clf.score(X_train_s, y_train)
     test_acc  = clf.score(X_test_s, y_test)
-    print(f"\nTrain accuracy: {train_acc:.4f}")
-    print(f"Test  accuracy: {test_acc:.4f}")
+    print(f"Train accuracy: {train_acc:.4f}")
+    print(f"Test  accuracy: {test_acc:.4f} (chronological holdout)")
     print(f"(baseline 50% = coin flip; 52~55% is realistic)")
 
     weights = {
@@ -151,6 +223,12 @@ def main():
         "samples":      len(data),
         "train_acc":    float(train_acc),
         "test_acc":     float(test_acc),
+        "walk_forward": {
+            "n_folds":   len(folds),
+            "avg_acc":   float(avg_acc),
+            "avg_edge":  float(avg_edge),
+            "folds":     folds,
+        },
     }
 
     with open("ml_weights.json", "w", encoding="utf-8") as f:

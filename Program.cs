@@ -15,6 +15,7 @@ builder.Services.AddSingleton<StockCatalogService>();
 builder.Services.AddSingleton<DecisionMatrixService>();
 builder.Services.AddHttpClient<VixService>();
 builder.Services.AddHttpClient<UsMarketService>();
+builder.Services.AddHostedService<UsMarketRefreshService>();
 builder.Services.AddSingleton<MLPredictionService>();
 builder.Services.AddHostedService<WarrantNewsService>();
 

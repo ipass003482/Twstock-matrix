@@ -13,7 +13,7 @@ public class UsMarketService
 
     private static UsOvernightSnapshot? _cache;
     private static DateTime _cacheTime = DateTime.MinValue;
-    private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(15);
+    private static readonly TimeSpan CacheTtl = TimeSpan.FromHours(24);
 
     public UsMarketService(HttpClient http, ILogger<UsMarketService> logger)
     {
@@ -38,6 +38,11 @@ public class UsMarketService
     {
         if (_cache != null && DateTime.UtcNow - _cacheTime < CacheTtl)
             return _cache;
+        return await ForceRefreshAsync();
+    }
+
+    public async Task<UsOvernightSnapshot> ForceRefreshAsync()
+    {
 
         var dji = await FetchAsync("%5EDJI");
         var ndx = await FetchAsync("%5ENDX");

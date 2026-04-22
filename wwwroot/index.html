@@ -339,6 +339,38 @@
     }
     .btn-view:hover { background: var(--accent); color: #0d1117; }
 
+    /* ── Prediction card ── */
+    .predict-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin-bottom: 20px;
+    }
+    .predict-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 14px;
+      margin-top: 14px;
+    }
+    @media (max-width: 720px) { .predict-grid { grid-template-columns: 1fr; } }
+    .predict-block {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px 14px;
+    }
+    .predict-block-title { font-size: 0.74rem; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: .04em; }
+    .predict-range-line { font-size: 1.05rem; font-weight: 700; margin-bottom: 4px; }
+    .predict-range-sub  { font-size: 0.72rem; color: var(--text-muted); }
+    .predict-prob-bar { height: 8px; background: #2d0c0c; border-radius: 4px; overflow: hidden; margin-top: 6px; }
+    .predict-prob-fill { height: 100%; background: var(--green); transition: width .4s; }
+    .predict-disclaimer { font-size: 0.74rem; color: var(--text-muted); margin-top: 12px; line-height: 1.6; }
+    .us-pill { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.72rem; font-weight: 600; margin-left: 4px; }
+    .us-pill.up { background: #0d3318; color: var(--green); }
+    .us-pill.down { background: #2d0c0c; color: var(--red); }
+    .us-pill.flat { background: var(--surface2); color: var(--text-muted); }
+
     /* ── Warrant News ── */
     .warrant-news {
       background: var(--surface);
@@ -529,6 +561,26 @@
       </div>
     </div>
 
+    <!-- 明日預測參考 -->
+    <div class="predict-card hidden" id="rPredictCard">
+      <div class="card-title">明日開盤參考 <span style="font-weight:400;color:var(--text-muted);text-transform:none;letter-spacing:0;font-size:0.78rem;margin-left:6px">A. 統計區間 + B. 美股隔夜 + C. ML 方向分類</span></div>
+      <div class="predict-grid">
+        <div class="predict-block" id="pbRange">
+          <div class="predict-block-title">A. 明日開盤信賴區間</div>
+          <div id="pbRangeBody"></div>
+        </div>
+        <div class="predict-block" id="pbUs">
+          <div class="predict-block-title">B. 美股隔夜訊號</div>
+          <div id="pbUsBody"></div>
+        </div>
+        <div class="predict-block" id="pbMl">
+          <div class="predict-block-title">C. ML 方向分類器</div>
+          <div id="pbMlBody"></div>
+        </div>
+      </div>
+      <p class="predict-disclaimer" id="rPredictDisclaimer"></p>
+    </div>
+
     <!-- Price chart -->
     <div class="chart-card">
       <div class="card-title">近 180 天走勢</div>
@@ -687,8 +739,73 @@ function doSearch() {
     .then(data => {
       if (data.error) { showError(data.error); return; }
       renderResult(data);
+      loadPrediction(ticker);
     })
     .catch(() => showError('網路請求失敗，請確認伺服器是否正常運作。'));
+}
+
+async function loadPrediction(ticker) {
+  const card = document.getElementById('rPredictCard');
+  card.classList.add('hidden');
+  try {
+    const r = await fetch(`/api/predict/${encodeURIComponent(ticker)}`);
+    const d = await r.json();
+    if (d.error) return;
+    renderPrediction(d);
+  } catch (e) { /* silent */ }
+}
+
+function renderPrediction(d) {
+  const card = document.getElementById('rPredictCard');
+  // A. Range
+  if (d.opening_range) {
+    const o = d.opening_range;
+    document.getElementById('pbRangeBody').innerHTML = `
+      <div class="predict-range-line" style="color:var(--accent)">${o.low68} ~ ${o.high68}</div>
+      <div class="predict-range-sub">68% 信賴區間（今收：${o.last_close}）</div>
+      <div class="predict-range-sub" style="margin-top:6px">95% 區間：${o.low95} ~ ${o.high95}</div>
+      <div class="predict-range-sub" style="margin-top:6px">ATR ${o.atr_pct}%／隔夜跳空均 ${o.avg_gap_pct}%</div>`;
+  } else {
+    document.getElementById('pbRangeBody').innerHTML = '<span style="color:var(--text-muted)">資料不足</span>';
+  }
+  // B. US overnight
+  if (d.us_overnight) {
+    const u = d.us_overnight;
+    const pill = (q) => {
+      if (!q || q.change_pct == null) return '<span class="us-pill flat">N/A</span>';
+      const cls = q.change_pct > 0 ? 'up' : q.change_pct < 0 ? 'down' : 'flat';
+      const sign = q.change_pct > 0 ? '+' : '';
+      return `<span class="us-pill ${cls}">${sign}${q.change_pct.toFixed(2)}%</span>`;
+    };
+    const sigCls = u.signal === 'bullish' ? 'up' : u.signal === 'bearish' ? 'down' : 'flat';
+    const sigColor = u.signal === 'bullish' ? 'var(--green)' : u.signal === 'bearish' ? 'var(--red)' : 'var(--yellow)';
+    document.getElementById('pbUsBody').innerHTML = `
+      <div class="predict-range-line" style="color:${sigColor}">${u.signal_label}（score ${u.signal_score}）</div>
+      <div class="predict-range-sub" style="margin-top:8px;line-height:1.7">
+        S&P 500 ${pill(u.sp500)}<br>
+        NASDAQ ${pill(u.nasdaq)}<br>
+        道琼斯 ${pill(u.dji)}<br>
+        VIX ${pill(u.vix)}
+      </div>`;
+  } else {
+    document.getElementById('pbUsBody').innerHTML = '<span style="color:var(--text-muted)">取得失敗</span>';
+  }
+  // C. ML
+  if (d.ml_prediction) {
+    const m = d.ml_prediction;
+    const upPct = (m.up_probability * 100).toFixed(1);
+    const dirColor = m.direction === 'up' ? 'var(--green)' : m.direction === 'down' ? 'var(--red)' : 'var(--yellow)';
+    const confLabel = { high: '高', medium: '中', low: '低' }[m.confidence] || m.confidence;
+    document.getElementById('pbMlBody').innerHTML = `
+      <div class="predict-range-line" style="color:${dirColor}">${m.direction_label}（上漲機率 ${upPct}%）</div>
+      <div class="predict-prob-bar"><div class="predict-prob-fill" style="width:${upPct}%;background:${dirColor}"></div></div>
+      <div class="predict-range-sub" style="margin-top:8px">信心：${confLabel}</div>
+      <div class="predict-range-sub" style="margin-top:4px;font-size:0.68rem">${m.model_info}</div>`;
+  } else {
+    document.getElementById('pbMlBody').innerHTML = '<span style="color:var(--text-muted)">ML 模型未載入</span>';
+  }
+  document.getElementById('rPredictDisclaimer').innerHTML = '說明：A 是「歷史平均隔夜跳空 + ATR 波動」推算的統計區間，不是預測。B 依據美股隔夜漲跌權重加總，VIX 大漲為警訊。C 是 Logistic Regression，測試集準確率約 52%（比丟硬幣略好）。這些是參考，不是預言。';
+  card.classList.remove('hidden');
 }
 
 // ── 狀態切換 ──────────────────────────────────────────

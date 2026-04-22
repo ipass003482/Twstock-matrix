@@ -14,6 +14,8 @@ builder.Services.AddHttpClient<FinmindService>();
 builder.Services.AddSingleton<StockCatalogService>();
 builder.Services.AddSingleton<DecisionMatrixService>();
 builder.Services.AddHttpClient<VixService>();
+builder.Services.AddHttpClient<UsMarketService>();
+builder.Services.AddSingleton<MLPredictionService>();
 builder.Services.AddHostedService<WarrantNewsService>();
 
 var app = builder.Build();
@@ -250,6 +252,46 @@ app.MapGet("/api/warrants/news", () =>
     var items = WarrantNewsService.GetNews();
     var last = WarrantNewsService.LastFetch;
     return Results.Json(new { last_fetch = last, news = items }, jsonOpts);
+});
+
+// ── GET /api/market/overnight ────────────────────────
+app.MapGet("/api/market/overnight", async (UsMarketService us) =>
+{
+    var snap = await us.GetAsync();
+    return Results.Json(snap, jsonOpts);
+});
+
+// ── GET /api/predict/{ticker} ─────────────────────
+app.MapGet("/api/predict/{ticker}", async (
+    string ticker,
+    FinmindService finmind,
+    StockCatalogService catalog,
+    UsMarketService us,
+    MLPredictionService ml) =>
+{
+    await catalog.EnsureLoadedAsync();
+    var stockId = catalog.ResolveToCode(ticker.Trim());
+
+    List<StockBar> bars;
+    try { bars = await finmind.GetHistoryAsync(stockId); }
+    catch (Exception ex) { return Results.Json(new { error = $"資料取得失敗：{ex.Message}" }, jsonOpts, statusCode: 500); }
+
+    if (bars.Count < 35)
+        return Results.Json(new { error = $"{stockId} 歷史資料不足（< 35 筆）" }, jsonOpts, statusCode: 404);
+
+    var range = OpeningRangeService.Compute(bars);
+    var pred  = ml.Predict(bars);
+    var usSnap = await us.GetAsync();
+    var name = catalog.GetName(stockId);
+
+    return Results.Json(new
+    {
+        ticker = stockId,
+        name,
+        opening_range = range,
+        ml_prediction = pred,
+        us_overnight  = usSnap,
+    }, jsonOpts);
 });
 
 // ── 所有其他請求回傳 index.html（SPA fallback）────────────

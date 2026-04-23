@@ -18,6 +18,7 @@ builder.Services.AddHttpClient<UsMarketService>();
 builder.Services.AddHostedService<UsMarketRefreshService>();
 builder.Services.AddSingleton<MLPredictionService>();
 builder.Services.AddHostedService<WarrantNewsService>();
+builder.Services.AddHttpClient<WarrantActiveService>();
 
 var app = builder.Build();
 app.UseStaticFiles();
@@ -253,6 +254,16 @@ app.MapGet("/api/warrants/news", () =>
     var items = WarrantNewsService.GetNews();
     var last = WarrantNewsService.LastFetch;
     return Results.Json(new { last_fetch = last, news = items }, jsonOpts);
+});
+
+// ── GET /api/warrants/active?top=50 ── 當日認購權證成交股數 Top N
+app.MapGet("/api/warrants/active", async (int? top, WarrantActiveService svc) =>
+{
+    var n = top.GetValueOrDefault(50);
+    if (n < 1)   n = 1;
+    if (n > 200) n = 200;
+    var snap = await svc.GetTopAsync(n);
+    return Results.Json(snap, jsonOpts);
 });
 
 // ── GET /api/market/overnight ────────────────────────

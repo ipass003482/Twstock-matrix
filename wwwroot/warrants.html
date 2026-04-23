@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>權證成交量榜單 | StockMatrix</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:#0d1117; --surface:#161b22; --surface2:#21262d; --border:#30363d;
+      --text:#e6edf3; --text-muted:#8b949e; --accent:#58a6ff;
+      --green:#3fb950; --red:#f85149; --yellow:#d29922; --radius:8px;
+    }
+    body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; min-height:100vh; }
+    .header { background:var(--surface); border-bottom:1px solid var(--border); padding:20px 24px; display:flex; align-items:center; gap:24px; flex-wrap:wrap; }
+    .header h1 { font-size:1.25rem; font-weight:700; }
+    .header nav { display:flex; gap:14px; margin-left:auto; }
+    .header nav a { color:var(--text-muted); text-decoration:none; font-size:0.9rem; padding:6px 12px; border-radius:6px; transition:all .15s; }
+    .header nav a:hover { color:var(--text); background:var(--surface2); }
+    .header nav a.active { color:var(--accent); background:var(--surface2); }
+
+    .toolbar { max-width:1200px; margin:24px auto 12px; padding:0 20px; display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+    .toolbar .info { color:var(--text-muted); font-size:0.85rem; }
+    .toolbar input[type=text] { background:var(--surface); border:1px solid var(--border); color:var(--text); border-radius:6px; padding:8px 12px; outline:none; min-width:220px; }
+    .toolbar select { background:var(--surface); border:1px solid var(--border); color:var(--text); border-radius:6px; padding:8px 10px; }
+    .toolbar .btn { background:var(--accent); color:#0d1117; border:none; border-radius:6px; padding:8px 16px; font-weight:600; cursor:pointer; }
+    .toolbar .btn:hover { opacity:.85; }
+
+    .main { max-width:1200px; margin:0 auto 60px; padding:0 20px; }
+    .table-wrap { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
+    .scroll { overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; font-size:0.85rem; min-width:980px; }
+    th { background:var(--surface2); color:var(--text-muted); padding:12px 14px; text-align:right; font-weight:600; position:sticky; top:0; }
+    th:first-child, th:nth-child(2), th:nth-child(3), th:nth-child(8), th:nth-child(9) { text-align:left; }
+    td { padding:10px 14px; text-align:right; border-top:1px solid var(--border); white-space:nowrap; }
+    td:first-child, td:nth-child(2), td:nth-child(3), td:nth-child(8), td:nth-child(9) { text-align:left; }
+    tr:hover td { background:var(--surface2); }
+    .code { font-family:Menlo,Consolas,monospace; color:var(--accent); }
+    .name { color:var(--text); }
+    .underlying { color:var(--text-muted); }
+    .up { color:var(--green); }
+    .down { color:var(--red); }
+
+    .loading, .empty { padding:48px; text-align:center; color:var(--text-muted); }
+    .spinner { display:inline-block; width:28px; height:28px; border:3px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .7s linear infinite; margin-bottom:12px; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+
+    .footer { color:var(--text-muted); font-size:0.78rem; margin-top:14px; padding:8px; line-height:1.6; }
+  </style>
+</head>
+<body>
+
+<header class="header">
+  <h1>權證成交量榜單</h1>
+  <nav>
+    <a href="/index.html">個股分析</a>
+    <a href="/warrants.html" class="active">權證榜</a>
+  </nav>
+</header>
+
+<div class="toolbar">
+  <span class="info" id="info">載入中…</span>
+  <input type="text" id="filter" placeholder="篩選（權證/標的代號或名稱）" />
+  <select id="topN">
+    <option value="50" selected>Top 50</option>
+    <option value="100">Top 100</option>
+    <option value="200">Top 200</option>
+  </select>
+  <button class="btn" id="refreshBtn">重新整理</button>
+</div>
+
+<main class="main">
+  <div class="table-wrap">
+    <div class="scroll">
+      <div id="content">
+        <div class="loading"><div class="spinner"></div><div>載入中…</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="footer">
+    資料來源：臺灣證券交易所 MI_INDEX type=0999（每日認購權證行情，不含牛證）。
+    成交股數含試撮，單位為股；成交金額單位為新台幣元。
+    本表為盤後資料，每日 14:30 後 TWSE 公布；本服務每 30 分鐘快取一次。
+  </div>
+</main>
+
+<script>
+  const el = (id) => document.getElementById(id);
+  let lastData = null;
+
+  function fmtNum(n) { return Number(n).toLocaleString('zh-TW'); }
+  function fmtPrice(n) { return Number(n).toFixed(2); }
+  function changeClass(sign) {
+    if (sign === '+') return 'up';
+    if (sign === '-') return 'down';
+    return '';
+  }
+  function changeText(sign, diff) {
+    if (!sign) return fmtPrice(diff);
+    return (sign === '+' ? '+' : '-') + Math.abs(diff).toFixed(2);
+  }
+
+  function render(data) {
+    const items = data.items || [];
+    if (items.length === 0) {
+      el('content').innerHTML = '<div class="empty">查無資料（可能假日休市或 TWSE 尚未公布）</div>';
+      return;
+    }
+    const filter = el('filter').value.trim().toLowerCase();
+    const filtered = filter
+      ? items.filter(it =>
+          it.code.toLowerCase().includes(filter) ||
+          (it.name||'').toLowerCase().includes(filter) ||
+          (it.underlying_code||'').toLowerCase().includes(filter) ||
+          (it.underlying_name||'').toLowerCase().includes(filter))
+      : items;
+
+    const rows = filtered.map((it, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td><span class="code">${it.code}</span></td>
+        <td class="name">${it.name || ''}</td>
+        <td>${fmtNum(it.volume)}</td>
+        <td>${fmtNum(it.trade_count)}</td>
+        <td>${fmtNum(it.trade_value)}</td>
+        <td>${fmtPrice(it.close)}</td>
+        <td class="${changeClass(it.change_sign)}">${changeText(it.change_sign, it.change)}</td>
+        <td><span class="code">${it.underlying_code || '—'}</span></td>
+        <td class="underlying">${it.underlying_name || ''}</td>
+        <td>${it.underlying_close ? fmtPrice(it.underlying_close) : '—'}</td>
+      </tr>`).join('');
+
+    el('content').innerHTML = `
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>權證代號</th>
+            <th>權證名稱</th>
+            <th>成交股數</th>
+            <th>成交筆數</th>
+            <th>成交金額</th>
+            <th>收盤</th>
+            <th>漲跌</th>
+            <th>標的代號</th>
+            <th>標的名稱</th>
+            <th>標的收盤</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+
+    el('info').textContent = `資料日期：${data.as_of}　當日權證共 ${fmtNum(data.total)} 檔，顯示 ${filtered.length} 筆`;
+  }
+
+  async function load() {
+    el('content').innerHTML = '<div class="loading"><div class="spinner"></div><div>載入中…</div></div>';
+    el('info').textContent = '載入中…';
+    const top = el('topN').value;
+    try {
+      const r = await fetch(`/api/warrants/active?top=${top}`);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      lastData = await r.json();
+      render(lastData);
+    } catch (e) {
+      el('content').innerHTML = `<div class="empty">載入失敗：${e.message}</div>`;
+      el('info').textContent = '錯誤';
+    }
+  }
+
+  el('refreshBtn').addEventListener('click', load);
+  el('topN').addEventListener('change', load);
+  el('filter').addEventListener('input', () => { if (lastData) render(lastData); });
+
+  load();
+</script>
+
+</body>
+</html>

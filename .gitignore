@@ -3,3 +3,10 @@ obj/
 *.user
 .vs/
 *.suo
+
+# Python (ml/)
+ml/.venv/
+ml/__pycache__/
+ml/*.txt
+ml/ml_weights.json
+ml/compare_*.py

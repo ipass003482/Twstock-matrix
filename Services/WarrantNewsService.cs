@@ -97,8 +97,8 @@ public class WarrantNewsService : BackgroundService
             @"href=""(/money/story/5739/[^""?]+)[^""]*""\s[^>]*title=""([^""]+)"".*?<time[^>]*>\s*([^<]+?)\s*</time>",
             RegexOptions.Singleline);
 
-        var today = DateTime.UtcNow.Add(TaiwanOffset).ToString("yyyy-MM-dd");
         var seen = new HashSet<string>();
+        const int MaxItems = 8;
 
         foreach (Match m in articleRx.Matches(section))
         {
@@ -107,9 +107,9 @@ public class WarrantNewsService : BackgroundService
             var time = m.Groups[3].Value.Trim();
 
             if (!seen.Add(path)) continue;
-            if (!time.StartsWith(today)) continue;
 
             items.Add(new WarrantNewsItem(title, "https://money.udn.com" + path, time));
+            if (items.Count >= MaxItems) break;
         }
 
         return items;

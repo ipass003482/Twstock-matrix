@@ -420,6 +420,55 @@
     .warrant-news-item:hover { border-color: var(--accent); color: var(--accent); }
     .warrant-news-time { color: var(--text-muted); font-size: 0.71rem; }
 
+    /* ── Foreign Cost ── */
+    .foreign-cost {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 24px 14px;
+    }
+    .foreign-cost-header {
+      font-size: 0.74rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .foreign-cost-badge {
+      background: #001a22;
+      color: #58a6ff;
+      border-radius: 10px;
+      padding: 1px 8px;
+      font-size: 0.68rem;
+      font-weight: 600;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+    .foreign-cost-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 8px;
+    }
+    .foreign-cost-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 9px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .foreign-cost-name { font-size: 0.85rem; font-weight: 600; color: var(--text); display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+    .foreign-cost-name .code { font-size: 0.72rem; color: var(--text-muted); font-weight: 400; }
+    .foreign-cost-row { display:flex; justify-content:space-between; font-size:0.78rem; color:var(--text-muted); }
+    .foreign-cost-row .v { color: var(--text); font-weight: 500; }
+    .foreign-cost-diff.up { color: var(--green); }
+    .foreign-cost-diff.down { color: var(--red); }
+    .foreign-cost-err { color: var(--text-muted); font-size:0.75rem; }
+
     /* ── Misc ── */
     .hidden { display: none !important; }
     .trend-badge { padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; }
@@ -472,6 +521,16 @@
     <span style="font-size:0.68rem;color:var(--text-muted);font-weight:400;text-transform:none;letter-spacing:0" id="warrantNewsFetch"></span>
   </div>
   <div class="warrant-news-list" id="warrantNewsList"></div>
+</div>
+
+<!-- 外資累積平均成本 -->
+<div class="foreign-cost" id="foreignCostSection" style="display:none">
+  <div class="foreign-cost-header">
+    外資平均成本
+    <span class="foreign-cost-badge">FinMind 近 1 年</span>
+    <span style="font-size:0.68rem;color:var(--text-muted);font-weight:400;text-transform:none;letter-spacing:0" id="foreignCostUpdated"></span>
+  </div>
+  <div class="foreign-cost-grid" id="foreignCostGrid"></div>
 </div>
 
 <div class="search-wrap">
@@ -1296,7 +1355,36 @@ async function loadWarrantNews() {
   } catch (e) { /* silent */ }
 }
 
-document.addEventListener('DOMContentLoaded', () => { loadVix(); loadWarrantNews(); });
+async function loadForeignCost() {
+  try {
+    const r = await fetch('/api/foreign-cost');
+    const data = await r.json();
+    if (!data.items || !data.items.length) return;
+    const grid = document.getElementById('foreignCostGrid');
+    const section = document.getElementById('foreignCostSection');
+    grid.innerHTML = data.items.map(it => {
+      if (it.error) {
+        return `<div class="foreign-cost-card">
+          <div class="foreign-cost-name">${escHtml(it.name)} <span class="code">${it.code}</span></div>
+          <div class="foreign-cost-err">無法計算：${escHtml(it.error)}</div>
+        </div>`;
+      }
+      const diffCls = it.diff_pct >= 0 ? 'up' : 'down';
+      const diffSign = it.diff_pct >= 0 ? '+' : '';
+      return `<div class="foreign-cost-card">
+        <div class="foreign-cost-name">${escHtml(it.name)} <span class="code">${it.code}</span></div>
+        <div class="foreign-cost-row"><span>平均成本</span><span class="v">${it.avg_cost.toFixed(2)}</span></div>
+        <div class="foreign-cost-row"><span>最新收盤</span><span class="v">${it.last_close.toFixed(2)}</span></div>
+        <div class="foreign-cost-row"><span>價差</span><span class="v foreign-cost-diff ${diffCls}">${diffSign}${it.diff_pct.toFixed(2)}%</span></div>
+        <div class="foreign-cost-row"><span>視窗</span><span class="v">${it.days} 日 / ${it.as_of}</span></div>
+      </div>`;
+    }).join('');
+    if (data.updated_at) document.getElementById('foreignCostUpdated').textContent = `更新：${data.updated_at}`;
+    section.style.display = '';
+  } catch (e) { /* silent */ }
+}
+
+document.addEventListener('DOMContentLoaded', () => { loadVix(); loadWarrantNews(); loadForeignCost(); });
 </script>
 
 </body>

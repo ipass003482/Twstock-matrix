@@ -10,3 +10,10 @@ ml/__pycache__/
 ml/*.txt
 ml/ml_weights.json
 ml/compare_*.py
+
+fc.json
+fm.json
+resp.txt
+srv.log
+srv.err
+udn.html

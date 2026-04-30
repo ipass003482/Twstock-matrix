@@ -19,6 +19,7 @@ builder.Services.AddHostedService<UsMarketRefreshService>();
 builder.Services.AddSingleton<MLPredictionService>();
 builder.Services.AddHostedService<WarrantNewsService>();
 builder.Services.AddHttpClient<WarrantActiveService>();
+builder.Services.AddHttpClient<ForeignCostService>(c => c.Timeout = TimeSpan.FromSeconds(20));
 
 var app = builder.Build();
 app.UseStaticFiles();
@@ -263,6 +264,13 @@ app.MapGet("/api/warrants/active", async (int? top, WarrantActiveService svc) =>
     if (n < 1)   n = 1;
     if (n > 200) n = 200;
     var snap = await svc.GetTopAsync(n);
+    return Results.Json(snap, jsonOpts);
+});
+
+// ── GET /api/foreign-cost ── 外資累積平均成本（預設 4 檔）
+app.MapGet("/api/foreign-cost", async (ForeignCostService svc) =>
+{
+    var snap = await svc.GetAsync();
     return Results.Json(snap, jsonOpts);
 });
 

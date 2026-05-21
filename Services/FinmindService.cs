@@ -20,7 +20,7 @@ public class FinmindService
         var end   = DateTime.Today.ToString("yyyy-MM-dd");
         var url   = $"{BaseUrl}?dataset=TaiwanStockPrice&data_id={stockId}&start_date={start}&end_date={end}";
 
-        var response = await _http.GetAsync(url);
+        var response = await _http.GetAsync(FinmindAuth.Append(url));
         response.EnsureSuccessStatusCode();
 
         using var doc = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());

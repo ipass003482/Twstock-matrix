@@ -73,7 +73,7 @@ public class MarketIndexService
     private async Task<IndexInfo?> FetchTaiexAsync(DateTime start, DateTime end)
     {
         var url = $"{BaseUrl}?dataset=TaiwanStockPrice&data_id=TAIEX&start_date={start:yyyy-MM-dd}&end_date={end:yyyy-MM-dd}";
-        using var resp = await _http.GetAsync(url);
+        using var resp = await _http.GetAsync(FinmindAuth.Append(url));
         resp.EnsureSuccessStatusCode();
         using var doc = await JsonDocument.ParseAsync(await resp.Content.ReadAsStreamAsync());
         if (!doc.RootElement.TryGetProperty("data", out var arr)) return null;
@@ -99,7 +99,7 @@ public class MarketIndexService
     private async Task<IndexInfo?> FetchTxNearAsync(DateTime start, DateTime end)
     {
         var url = $"{BaseUrl}?dataset=TaiwanFuturesDaily&data_id=TX&start_date={start:yyyy-MM-dd}&end_date={end:yyyy-MM-dd}";
-        using var resp = await _http.GetAsync(url);
+        using var resp = await _http.GetAsync(FinmindAuth.Append(url));
         resp.EnsureSuccessStatusCode();
         using var doc = await JsonDocument.ParseAsync(await resp.Content.ReadAsStreamAsync());
         if (!doc.RootElement.TryGetProperty("data", out var arr)) return null;

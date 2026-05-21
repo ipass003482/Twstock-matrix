@@ -47,7 +47,7 @@ public class FuturesInstitutionalService
 
             try
             {
-                using var resp = await _http.GetAsync(url);
+                using var resp = await _http.GetAsync(FinmindAuth.Append(url));
                 resp.EnsureSuccessStatusCode();
                 using var doc = await JsonDocument.ParseAsync(await resp.Content.ReadAsStreamAsync());
                 if (!doc.RootElement.TryGetProperty("data", out var arr))

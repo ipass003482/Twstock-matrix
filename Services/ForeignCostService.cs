@@ -152,7 +152,7 @@ public class ForeignCostService
     private async Task<Dictionary<DateTime, double>> FetchPriceAsync(string code, string start, string end)
     {
         var url = $"{BaseUrl}?dataset=TaiwanStockPrice&data_id={code}&start_date={start}&end_date={end}";
-        using var resp = await _http.GetAsync(url);
+        using var resp = await _http.GetAsync(FinmindAuth.Append(url));
         resp.EnsureSuccessStatusCode();
         using var doc = await JsonDocument.ParseAsync(await resp.Content.ReadAsStreamAsync());
         var dict = new Dictionary<DateTime, double>();
@@ -183,7 +183,7 @@ public class ForeignCostService
     private async Task<Dictionary<DateTime, long>> FetchForeignNetAsync(string code, string start, string end)
     {
         var url = $"{BaseUrl}?dataset=TaiwanStockInstitutionalInvestorsBuySell&data_id={code}&start_date={start}&end_date={end}";
-        using var resp = await _http.GetAsync(url);
+        using var resp = await _http.GetAsync(FinmindAuth.Append(url));
         resp.EnsureSuccessStatusCode();
         using var doc = await JsonDocument.ParseAsync(await resp.Content.ReadAsStreamAsync());
         var dict = new Dictionary<DateTime, long>();

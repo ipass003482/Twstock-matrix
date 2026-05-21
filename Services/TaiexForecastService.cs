@@ -175,7 +175,7 @@ public class TaiexForecastService
     private async Task<Dictionary<DateTime, double>> FetchTaiexAsync(DateTime start, DateTime end)
     {
         var url = $"{BaseUrl}?dataset=TaiwanStockPrice&data_id=TAIEX&start_date={start:yyyy-MM-dd}&end_date={end:yyyy-MM-dd}";
-        using var resp = await _http.GetAsync(url);
+        using var resp = await _http.GetAsync(FinmindAuth.Append(url));
         resp.EnsureSuccessStatusCode();
         using var doc = await JsonDocument.ParseAsync(await resp.Content.ReadAsStreamAsync());
         var dict = new Dictionary<DateTime, double>();
@@ -195,7 +195,7 @@ public class TaiexForecastService
     private async Task<Dictionary<DateTime, double>> FetchTxNearAsync(DateTime start, DateTime end)
     {
         var url = $"{BaseUrl}?dataset=TaiwanFuturesDaily&data_id=TX&start_date={start:yyyy-MM-dd}&end_date={end:yyyy-MM-dd}";
-        using var resp = await _http.GetAsync(url);
+        using var resp = await _http.GetAsync(FinmindAuth.Append(url));
         resp.EnsureSuccessStatusCode();
         using var doc = await JsonDocument.ParseAsync(await resp.Content.ReadAsStreamAsync());
         var dict = new Dictionary<DateTime, double>();
@@ -228,7 +228,7 @@ public class TaiexForecastService
     private async Task<Dictionary<DateTime, double>> FetchForeignOiAsync(DateTime start, DateTime end)
     {
         var url = $"{BaseUrl}?dataset=TaiwanFuturesInstitutionalInvestors&data_id=TX&start_date={start:yyyy-MM-dd}&end_date={end:yyyy-MM-dd}";
-        using var resp = await _http.GetAsync(url);
+        using var resp = await _http.GetAsync(FinmindAuth.Append(url));
         resp.EnsureSuccessStatusCode();
         using var doc = await JsonDocument.ParseAsync(await resp.Content.ReadAsStreamAsync());
         var dict = new Dictionary<DateTime, double>();

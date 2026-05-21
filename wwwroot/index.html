@@ -469,6 +469,142 @@
     .foreign-cost-diff.down { color: var(--red); }
     .foreign-cost-err { color: var(--text-muted); font-size:0.75rem; }
 
+    /* ── Foreign Futures TX ── */
+    .fut-tx {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 24px 12px;
+    }
+    .fut-tx-header {
+      font-size: 0.74rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .fut-tx-badge {
+      background: #220022;
+      color: #d2649b;
+      border-radius: 10px;
+      padding: 1px 8px;
+      font-size: 0.68rem;
+      font-weight: 600;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+    .fut-tx-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 8px;
+    }
+    .fut-tx-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .fut-tx-label { font-size: 0.72rem; color: var(--text-muted); }
+    .fut-tx-value { font-size: 1.05rem; font-weight: 600; color: var(--text); }
+    .fut-tx-value.up { color: var(--green); }
+    .fut-tx-value.down { color: var(--red); }
+    .fut-tx-sub { font-size: 0.7rem; color: var(--text-muted); }
+    .fut-tx-note {
+      margin-top: 12px;
+      padding: 10px 12px;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.74rem;
+      line-height: 1.55;
+      color: var(--text-muted);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .fut-tx-note b { color: var(--text); font-weight: 600; }
+    .market-idx-grid {
+      margin-top: 12px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+    }
+    .market-idx-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .market-idx-label { font-size: 0.74rem; color: var(--text-muted); }
+    .market-idx-value { font-size: 1.15rem; font-weight: 600; color: var(--text); }
+    .market-idx-change { font-size: 0.78rem; font-weight: 600; }
+    .market-idx-change.up { color: var(--green); }
+    .market-idx-change.down { color: var(--red); }
+    .market-idx-sub { font-size: 0.7rem; color: var(--text-muted); }
+    .forecast-card {
+      margin-top: 12px;
+      padding: 12px 14px;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .forecast-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+    .forecast-head b { color: var(--text); font-size: 0.88rem; }
+    .forecast-dir {
+      padding: 2px 10px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 600;
+    }
+    .forecast-dir.up { background: rgba(0,200,83,0.15); color: var(--green); }
+    .forecast-dir.down { background: rgba(255,82,82,0.15); color: var(--red); }
+    .forecast-dir.flat { background: rgba(255,255,255,0.06); color: var(--text-muted); }
+    .forecast-stats { display: flex; gap: 18px; flex-wrap: wrap; font-size: 0.78rem; }
+    .forecast-stats .label { color: var(--text-muted); margin-right: 4px; }
+    .forecast-stats .val { color: var(--text); font-weight: 600; }
+    .forecast-signals { display: flex; flex-direction: column; gap: 4px; font-size: 0.76rem; }
+    .forecast-signals .sig { display: flex; gap: 8px; align-items: center; }
+    .forecast-signals .sig-vote {
+      width: 22px; text-align: center; font-weight: 700;
+      border-radius: 4px; padding: 1px 0;
+    }
+    .forecast-signals .sig-vote.up { color: var(--green); background: rgba(0,200,83,0.12); }
+    .forecast-signals .sig-vote.down { color: var(--red); background: rgba(255,82,82,0.12); }
+    .forecast-signals .sig-vote.flat { color: var(--text-muted); background: rgba(255,255,255,0.06); }
+    .forecast-signals .sig-name { color: var(--text); min-width: 200px; }
+    .forecast-signals .sig-reason { color: var(--text-muted); }
+    .forecast-note {
+      margin-top: 4px;
+      padding-top: 8px;
+      border-top: 1px dashed var(--border);
+      font-size: 0.72rem;
+      line-height: 1.55;
+      color: var(--text-muted);
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .forecast-note b { color: var(--text); font-weight: 600; }
+
     /* ── Misc ── */
     .hidden { display: none !important; }
     .trend-badge { padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; }
@@ -511,6 +647,44 @@
     <span class="vix-tag normal" id="twVixTag">載入中</span>
   </div>
   <span class="vix-updated" id="vixUpdated"></span>
+</div>
+
+<!-- 外資台指期 TX -->
+<div class="fut-tx" id="futTxSection" style="display:none">
+  <div class="fut-tx-header">
+    外資台指期 (TX)
+    <span class="fut-tx-badge">FinMind 三大法人</span>
+    <span style="font-size:0.68rem;color:var(--text-muted);font-weight:400;text-transform:none;letter-spacing:0" id="futTxAsOf"></span>
+  </div>
+  <div class="fut-tx-grid" id="futTxGrid"></div>
+  <div class="fut-tx-note">
+    <div><b>當日多/空單口數</b>：當日外資買進 / 賣出成交口數。</div>
+    <div><b>當日多空淨額</b>：多單 − 空單。正數＝買多大於賣空，負數＝偏空。</div>
+    <div><b>未平倉淨多空</b>：外資留倉的多單未平倉 − 空單未平倉。正數→手中多單較多（偏多）；負數→手中空單較多（偏空）。「較前日」為與前一交易日淨多空的差額。</div>
+  </div>
+  <div class="market-idx-grid" id="marketIdxGrid"></div>
+  <div class="forecast-card" id="forecastCard" style="display:none">
+    <div class="forecast-head">
+      <b>明日 TAIEX 方向估計</b>
+      <span class="forecast-dir flat" id="forecastDir">—</span>
+      <span id="forecastAsOf"></span>
+    </div>
+    <div class="forecast-stats">
+      <div><span class="label">看多機率</span><span class="val" id="forecastProb">—</span></div>
+      <div><span class="label">訊號分數</span><span class="val" id="forecastScore">—</span></div>
+      <div><span class="label">回測命中率</span><span class="val" id="forecastHit">—</span></div>
+    </div>
+    <div class="forecast-signals" id="forecastSignals"></div>
+    <div class="forecast-note">
+      <div><b>方法</b>：啟發式（非機器學習）。三個訊號各投一票，總分 ∈ {−3,−1,+1,+3}。</div>
+      <div><b>訊號 1 — TX 基差變化</b>：(TX 近月收盤 − TAIEX 收盤) 較前日上升投 +1，下降 −1。期貨領先現貨時通常為偏多訊號。</div>
+      <div><b>訊號 2 — 外資 TX 未平倉淨多空變化</b>：外資 (多單未平倉 − 空單未平倉) 較前日增加 +1，減少 −1。外資加碼方向常被當成法人籌碼訊號。</div>
+      <div><b>訊號 3 — TAIEX 5 日動能</b>：近 5 日報酬正 +1，負 −1。短期趨勢延續性。</div>
+      <div><b>看多機率定義</b>：當總分為正→使用回測命中率；總分為負→使用 (1 − 命中率)；總分 0→ 0.5。並非真實機率分布。</div>
+      <div><b>回測命中率</b>：對過去 ~250 個交易日，用當日訊號預測「明日 TAIEX 收盤 vs 今日收盤」方向，扣除中性票的樣本內命中比例。屬樣本內測試，未做交易成本與滑價調整。</div>
+      <div style="opacity:0.85"><b>限制</b>：(1) 只有三個訊號，未含 TWVIX、夜盤 TX、海外指數、結算日、新聞事件。(2) 樣本內回測會高估真實表現。(3) 命中率約 50–58% 屬於弱訊號，不可作為交易進出依據。(4) 結算週、FOMC、選舉等事件日訊號雜訊偏高。</div>
+    </div>
+  </div>
 </div>
 
 <!-- 權證特區新聞 -->
@@ -1384,7 +1558,100 @@ async function loadForeignCost() {
   } catch (e) { /* silent */ }
 }
 
-document.addEventListener('DOMContentLoaded', () => { loadVix(); loadWarrantNews(); loadForeignCost(); });
+async function loadFuturesForeign() {
+  try {
+    const r = await fetch('/api/futures/foreign');
+    const data = await r.json();
+    if (data.error || !data.as_of) return;
+    const fmt = (n) => Number(n).toLocaleString('zh-TW');
+    const sign = (n) => (n >= 0 ? '+' : '') + fmt(n);
+    const cls  = (n) => n >= 0 ? 'up' : 'down';
+    const grid = document.getElementById('futTxGrid');
+    grid.innerHTML = `
+      <div class="fut-tx-card">
+        <div class="fut-tx-label">當日多單口數</div>
+        <div class="fut-tx-value up">${fmt(data.long_deal_volume)}</div>
+        <div class="fut-tx-sub">買進成交</div>
+      </div>
+      <div class="fut-tx-card">
+        <div class="fut-tx-label">當日空單口數</div>
+        <div class="fut-tx-value down">${fmt(data.short_deal_volume)}</div>
+        <div class="fut-tx-sub">賣出成交</div>
+      </div>
+      <div class="fut-tx-card">
+        <div class="fut-tx-label">當日多空淨額</div>
+        <div class="fut-tx-value ${cls(data.deal_net)}">${sign(data.deal_net)}</div>
+        <div class="fut-tx-sub">多 − 空</div>
+      </div>
+      <div class="fut-tx-card">
+        <div class="fut-tx-label">未平倉淨多空</div>
+        <div class="fut-tx-value ${cls(data.net_oi)}">${sign(data.net_oi)}</div>
+        <div class="fut-tx-sub">${data.net_oi_change != null ? '較前日 ' + sign(data.net_oi_change) : '—'}</div>
+      </div>`;
+    document.getElementById('futTxAsOf').textContent = `資料日期：${data.as_of}`;
+    document.getElementById('futTxSection').style.display = '';
+  } catch (e) { /* silent */ }
+}
+
+async function loadMarketIndex() {
+  try {
+    const r = await fetch('/api/market/index');
+    const data = await r.json();
+    const grid = document.getElementById('marketIdxGrid');
+    if (!grid) return;
+    const fmtNum = (n) => Number(n).toLocaleString('zh-TW', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const sign = (n) => (n >= 0 ? '+' : '') + fmtNum(n);
+    const cls  = (n) => n >= 0 ? 'up' : 'down';
+    const cards = [];
+    if (data.taiex) {
+      const t = data.taiex;
+      cards.push(`
+        <div class="market-idx-card">
+          <div class="market-idx-label">加權指數 (TAIEX)</div>
+          <div class="market-idx-value">${fmtNum(t.close)}</div>
+          <div class="market-idx-change ${cls(t.change)}">${sign(t.change)} (${sign(t.change_pct)}%)</div>
+          <div class="market-idx-sub">${t.as_of}</div>
+        </div>`);
+    }
+    if (data.tx_near) {
+      const t = data.tx_near;
+      cards.push(`
+        <div class="market-idx-card">
+          <div class="market-idx-label">台指期近月 (TX${t.extra ? ' ' + t.extra : ''})</div>
+          <div class="market-idx-value">${fmtNum(t.close)}</div>
+          <div class="market-idx-change ${cls(t.change)}">${sign(t.change)} (${sign(t.change_pct)}%)</div>
+          <div class="market-idx-sub">${t.as_of}</div>
+        </div>`);
+    }
+    grid.innerHTML = cards.join('');
+  } catch (e) { /* silent */ }
+}
+
+async function loadTaiexForecast() {
+  try {
+    const r = await fetch('/api/market/forecast');
+    const data = await r.json();
+    if (data.error) return;
+    const card = document.getElementById('forecastCard');
+    const dirEl = document.getElementById('forecastDir');
+    const cls = data.score > 0 ? 'up' : (data.score < 0 ? 'down' : 'flat');
+    dirEl.className = 'forecast-dir ' + cls;
+    dirEl.textContent = data.direction;
+    document.getElementById('forecastAsOf').textContent = `資料日期：${data.as_of}`;
+    document.getElementById('forecastProb').textContent = (data.up_probability * 100).toFixed(1) + '%';
+    document.getElementById('forecastScore').textContent = `${data.score >= 0 ? '+' : ''}${data.score} / ±${data.max_score}`;
+    document.getElementById('forecastHit').textContent = `${(data.backtest_hit_rate * 100).toFixed(1)}% (${data.backtest_hits}/${data.backtest_days})`;
+    const sigEl = document.getElementById('forecastSignals');
+    sigEl.innerHTML = (data.signals || []).map(s => {
+      const c = s.vote > 0 ? 'up' : (s.vote < 0 ? 'down' : 'flat');
+      const sym = s.vote > 0 ? '+1' : (s.vote < 0 ? '−1' : '0');
+      return `<div class="sig"><span class="sig-vote ${c}">${sym}</span><span class="sig-name">${s.name}</span><span class="sig-reason">${s.reason}</span></div>`;
+    }).join('');
+    card.style.display = '';
+  } catch (e) { /* silent */ }
+}
+
+document.addEventListener('DOMContentLoaded', () => { loadVix(); loadFuturesForeign(); loadMarketIndex(); loadTaiexForecast(); loadWarrantNews(); loadForeignCost(); });
 </script>
 
 </body>

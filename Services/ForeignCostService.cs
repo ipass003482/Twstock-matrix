@@ -26,7 +26,8 @@ public class ForeignCostService
         ("2330", "台積電"),
         ("2317", "鴻海"),
         ("2454", "聯發科"),
-        ("1590", "亞德客-KY"),
+        ("3356", "奇偶"),
+        ("1303", "南亞"),
     };
 
     public ForeignCostService(HttpClient http, ILogger<ForeignCostService> logger)

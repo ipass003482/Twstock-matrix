@@ -20,6 +20,9 @@ builder.Services.AddSingleton<MLPredictionService>();
 builder.Services.AddHostedService<WarrantNewsService>();
 builder.Services.AddHttpClient<WarrantActiveService>();
 builder.Services.AddHttpClient<ForeignCostService>(c => c.Timeout = TimeSpan.FromSeconds(20));
+builder.Services.AddHttpClient<FuturesInstitutionalService>(c => c.Timeout = TimeSpan.FromSeconds(20));
+builder.Services.AddHttpClient<MarketIndexService>(c => c.Timeout = TimeSpan.FromSeconds(20));
+builder.Services.AddHttpClient<TaiexForecastService>(c => c.Timeout = TimeSpan.FromSeconds(30));
 
 var app = builder.Build();
 app.UseStaticFiles();
@@ -269,6 +272,27 @@ app.MapGet("/api/warrants/active", async (int? top, WarrantActiveService svc) =>
 
 // ── GET /api/foreign-cost ── 外資累積平均成本（預設 4 檔）
 app.MapGet("/api/foreign-cost", async (ForeignCostService svc) =>
+{
+    var snap = await svc.GetAsync();
+    return Results.Json(snap, jsonOpts);
+});
+
+// ── GET /api/futures/foreign ── 外資台指期 TX 多/空口數
+app.MapGet("/api/futures/foreign", async (FuturesInstitutionalService svc) =>
+{
+    var snap = await svc.GetForeignTxAsync();
+    return Results.Json(snap, jsonOpts);
+});
+
+// ── GET /api/market/index ── 加權指數 + 台指近月
+app.MapGet("/api/market/index", async (MarketIndexService svc) =>
+{
+    var snap = await svc.GetAsync();
+    return Results.Json(snap, jsonOpts);
+});
+
+// ── GET /api/market/forecast ── 明日 TAIEX 方向啟發式估計
+app.MapGet("/api/market/forecast", async (TaiexForecastService svc) =>
 {
     var snap = await svc.GetAsync();
     return Results.Json(snap, jsonOpts);
